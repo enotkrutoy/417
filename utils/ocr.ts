@@ -50,7 +50,7 @@ export const preprocessImage = (file: File): Promise<string> => {
 /**
  * Uses Google Gemini Vision (Flash) to extract structured DL data.
  */
-export const scanDLWithGemini = async (base64Image: string): Promise<Partial<DLFormData>> => {
+export const scanDLWithGemini = async (base64Image: string): Promise<Record<string, string>> => {
   // NOTE: process.env.API_KEY is assumed to be injected by the build system/environment
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
@@ -116,8 +116,21 @@ export const scanDLWithGemini = async (base64Image: string): Promise<Partial<DLF
   if (!text) return {};
 
   try {
-    const data = JSON.parse(text);
-    return data;
+    const rawData = JSON.parse(text);
+    const sanitized: Record<string, string> = {};
+    
+    // Ensure we only return string values to satisfy strict types in App.tsx
+    // DLFormData has an index signature [key: string]: string, so no undefined allowed.
+    Object.keys(rawData).forEach(key => {
+        const val = rawData[key];
+        if (typeof val === 'string') {
+            sanitized[key] = val;
+        } else if (typeof val === 'number') {
+            sanitized[key] = String(val);
+        }
+    });
+    
+    return sanitized;
   } catch (e) {
     console.error("Failed to parse Gemini response", e);
     return {};
