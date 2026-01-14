@@ -5,12 +5,16 @@ import { generateAAMVAString } from './utils/aamva';
 import { preprocessImage, scanDLWithGemini, detectJurisdictionFromCode } from './utils/ocr';
 import { validateBarcode } from './utils/validator';
 import BarcodeCanvas from './components/BarcodeCanvas';
-import { ArrowLeft, CreditCard, ShieldCheck, Camera, Loader2, Sparkles, ScanBarcode, CheckCircle, AlertTriangle, XCircle, Upload, FileText, Image as ImageIcon, Search, Maximize2, X, Trash2, Star, BrainCircuit } from 'lucide-react';
+import { ArrowLeft, CreditCard, ShieldCheck, Camera, Loader2, Sparkles, ScanBarcode, CheckCircle, AlertTriangle, XCircle, Upload, FileText, Image as ImageIcon, Search, Maximize2, X, Trash2, Star, BrainCircuit, Settings, Save, Key } from 'lucide-react';
 import { BrowserPDF417Reader } from '@zxing/library';
 
 const App: React.FC = () => {
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<Jurisdiction | null>(null);
   const [generatedString, setGeneratedString] = useState<string>("");
+  
+  // API Key State
+  const [apiKey, setApiKey] = useState<string>("");
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   
   // Image Preview State
   const [scanPreviewUrl, setScanPreviewUrl] = useState<string | null>(null);
@@ -56,9 +60,24 @@ const App: React.FC = () => {
     DCF: '112233445566'
   });
 
-  // CLEANUP: Revoke Blob URLs to prevent memory leaks when component unmounts
+  // Load API Key from storage or env on mount
   useEffect(() => {
-    // Set proper current date on mount for DEB
+    // 1. Try Local Storage
+    const storedKey = localStorage.getItem('gemini_api_key');
+    if (storedKey) {
+        setApiKey(storedKey);
+        return;
+    }
+    // 2. Try Env Var (injected by Vite)
+    // @ts-ignore - process.env.API_KEY is replaced by string literal at build time
+    const envKey = process.env.API_KEY;
+    if (envKey) {
+        setApiKey(envKey);
+    }
+  }, []);
+
+  // Update DEB date and cleanup preview on unmount
+  useEffect(() => {
     const now = new Date();
     const mm = String(now.getMonth() + 1).padStart(2, '0');
     const dd = String(now.getDate()).padStart(2, '0');
@@ -71,6 +90,13 @@ const App: React.FC = () => {
       }
     };
   }, [scanPreviewUrl]);
+
+  // Handle API Key Save
+  const saveApiKey = (newKey: string) => {
+      setApiKey(newKey);
+      localStorage.setItem('gemini_api_key', newKey);
+      setIsSettingsOpen(false);
+  };
 
   // Helper to handle preview generation and cleanup of previous preview
   const handleFilePreview = (file: File) => {
@@ -125,12 +151,22 @@ const App: React.FC = () => {
 
   // --- AI / Scanning Logic (Gemini) ---
   const triggerFileInput = () => {
+    if (!apiKey) {
+        setIsSettingsOpen(true);
+        alert("Please set your Gemini API Key first.");
+        return;
+    }
     fileInputRef.current?.click();
   };
 
   const handleImageScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     
+    if (!apiKey) {
+        setIsSettingsOpen(true);
+        return;
+    }
+
     setIsScanning(true);
     setScanStatus("Processing...");
     const file = e.target.files[0];
@@ -143,8 +179,8 @@ const App: React.FC = () => {
         const processedImageBase64 = await preprocessImage(file);
         
         setScanStatus("Gemini AI Analysis...");
-        // Call the AI extraction
-        const updates = await scanDLWithGemini(processedImageBase64);
+        // Call the AI extraction with the key
+        const updates = await scanDLWithGemini(processedImageBase64, apiKey);
         
         setScanStatus("Applying Data...");
         
@@ -157,14 +193,11 @@ const App: React.FC = () => {
             if (detectedJur) {
                 handleSelectJurisdiction(detectedJur);
             }
-        } else if (!selectedJurisdiction) {
-             // Fallback or alert if no state detected and not already selected
-             // But we don't want to block the user if partial data came through
         }
 
-    } catch (err) {
+    } catch (err: any) {
         console.error("AI Scan Error:", err);
-        alert("AI Extraction failed. Ensure you have a valid API Key and a clear image.");
+        alert(`AI Extraction failed: ${err.message || 'Unknown error'}. Check your API Key.`);
     } finally {
         setIsScanning(false);
         setScanStatus("");
@@ -264,24 +297,36 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-950 text-slate-100 pb-20 selection:bg-sky-500 selection:text-white">
       {/* Header */}
       <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-20 backdrop-blur-md bg-opacity-90">
-        <div className="max-w-5xl mx-auto px-4 py-4 flex flex-col items-center relative">
-            {selectedJurisdiction && (
-                <button 
-                    onClick={handleBack}
-                    className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center text-sky-400 hover:text-sky-300 font-medium transition-colors"
-                >
-                    <ArrowLeft className="w-4 h-4 mr-1" /> Back
-                </button>
-            )}
-            <h1 className="text-2xl font-bold text-white flex items-center gap-3 tracking-tight">
-                <CreditCard className="w-7 h-7 text-sky-500" />
-                AAMVA <span className="text-sky-500">PRO</span>
-            </h1>
-            <p className="text-xs text-slate-400 uppercase tracking-widest mt-1 font-medium">
-                {selectedJurisdiction 
-                    ? `Generating for: ${selectedJurisdiction.name}` 
-                    : 'Universal ID Generator & Validator'}
-            </p>
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between relative">
+            <div className="flex items-center gap-2">
+                {selectedJurisdiction && (
+                    <button 
+                        onClick={handleBack}
+                        className="flex items-center text-sky-400 hover:text-sky-300 font-medium transition-colors mr-3"
+                    >
+                        <ArrowLeft className="w-5 h-5" />
+                    </button>
+                )}
+                <div className="flex flex-col">
+                    <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2 tracking-tight">
+                        <CreditCard className="w-6 h-6 md:w-7 md:h-7 text-sky-500" />
+                        AAMVA <span className="text-sky-500">PRO</span>
+                    </h1>
+                     <p className="hidden md:block text-[10px] text-slate-400 uppercase tracking-widest font-medium">
+                        {selectedJurisdiction 
+                            ? `Generating for: ${selectedJurisdiction.name}` 
+                            : 'Universal ID Generator & Validator'}
+                    </p>
+                </div>
+            </div>
+
+            <button 
+                onClick={() => setIsSettingsOpen(true)}
+                className={`p-2 rounded-full transition-all ${apiKey ? 'text-slate-400 hover:text-white hover:bg-slate-800' : 'text-amber-400 bg-amber-900/20 hover:bg-amber-900/30 animate-pulse'}`}
+                title="Settings & API Key"
+            >
+                <Settings className="w-6 h-6" />
+            </button>
         </div>
       </header>
 
@@ -350,7 +395,7 @@ const App: React.FC = () => {
                              </div>
                          )}
                          
-                        <p className="text-xs text-slate-500 mt-2">Powered by Gemini 2.0 Flash • 100% Client-Side</p>
+                        <p className="text-xs text-slate-500 mt-2">Powered by Gemini 2.0 Flash • Client-Side • Secure</p>
                     </div>
                 </div>
 
@@ -704,6 +749,56 @@ const App: React.FC = () => {
             </div>
         )}
       </main>
+
+      {/* Settings Modal */}
+      {isSettingsOpen && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
+              <div className="bg-slate-900 rounded-2xl border border-slate-700 shadow-2xl w-full max-w-md p-6 relative">
+                  <button 
+                      onClick={() => setIsSettingsOpen(false)}
+                      className="absolute top-4 right-4 text-slate-500 hover:text-white transition-colors"
+                  >
+                      <X className="w-5 h-5" />
+                  </button>
+                  
+                  <div className="flex items-center gap-3 mb-6">
+                      <div className="p-3 bg-slate-800 rounded-full">
+                          <Settings className="w-6 h-6 text-sky-400" />
+                      </div>
+                      <div>
+                          <h3 className="text-xl font-bold text-white">Settings</h3>
+                          <p className="text-xs text-slate-400">Configure app preferences</p>
+                      </div>
+                  </div>
+
+                  <div className="space-y-4">
+                      <div>
+                          <label className="block text-sm font-bold text-slate-300 mb-2 flex items-center gap-2">
+                              <Key className="w-4 h-4 text-amber-400" />
+                              Gemini API Key
+                          </label>
+                          <input 
+                              type="password" 
+                              value={apiKey} 
+                              onChange={(e) => setApiKey(e.target.value)}
+                              placeholder="AIzaSy..."
+                              className="w-full bg-slate-950 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-sky-500 focus:border-transparent outline-none transition-all font-mono text-sm"
+                          />
+                          <p className="text-xs text-slate-500 mt-2">
+                              Your API key is stored locally in your browser and used only to communicate with Google Gemini.
+                          </p>
+                      </div>
+
+                      <button 
+                          onClick={() => saveApiKey(apiKey)}
+                          className="w-full bg-sky-600 hover:bg-sky-500 text-white font-bold py-3 rounded-xl transition-all flex items-center justify-center gap-2 mt-4"
+                      >
+                          <Save className="w-4 h-4" /> Save Settings
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* Image Preview Lightbox Modal */}
       {isPreviewOpen && scanPreviewUrl && (

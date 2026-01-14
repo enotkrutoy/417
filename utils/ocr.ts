@@ -50,9 +50,12 @@ export const preprocessImage = (file: File): Promise<string> => {
 /**
  * Uses Google Gemini Vision (Flash) to extract structured DL data.
  */
-export const scanDLWithGemini = async (base64Image: string): Promise<Record<string, string>> => {
-  // NOTE: process.env.API_KEY is assumed to be injected by the build system/environment
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+export const scanDLWithGemini = async (base64Image: string, apiKey: string): Promise<Record<string, string>> => {
+  if (!apiKey) {
+    throw new Error("API Key is missing. Please provide a valid Gemini API Key.");
+  }
+  
+  const ai = new GoogleGenAI({ apiKey });
   
   // Use 'gemini-2.5-flash-latest' for reliable multimodal tasks
   const modelId = "gemini-2.5-flash-latest";
