@@ -57,9 +57,8 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
   
   const ai = new GoogleGenAI({ apiKey });
   
-  // Use 'gemini-2.0-flash' as the standard stable multimodal model.
-  // 'gemini-2.0-flash-exp' is deprecated and returns 404.
-  const modelId = "gemini-2.0-flash";
+  // Use 'gemini-2.5-flash' as requested by user
+  const modelId = "gemini-2.5-flash";
 
   const response = await ai.models.generateContent({
     model: modelId,
