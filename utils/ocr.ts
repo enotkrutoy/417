@@ -1,5 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
-import { DLFormData, Jurisdiction } from '../types';
+import { Jurisdiction } from '../types';
 import { JURISDICTIONS } from '../constants';
 
 /**
