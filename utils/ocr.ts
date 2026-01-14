@@ -54,8 +54,8 @@ export const scanDLWithGemini = async (base64Image: string): Promise<Partial<DLF
   // NOTE: process.env.API_KEY is assumed to be injected by the build system/environment
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
-  // Use 'gemini-3-flash-preview' for basic text/multimodal tasks per SDK guidelines
-  const modelId = "gemini-3-flash-preview";
+  // Use 'gemini-2.5-flash-latest' for reliable multimodal tasks
+  const modelId = "gemini-2.5-flash-latest";
 
   const response = await ai.models.generateContent({
     model: modelId,

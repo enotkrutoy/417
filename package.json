@@ -18,9 +18,10 @@
     "@zxing/library": "^0.21.3",
     "clsx": "^2.1.0",
     "tailwind-merge": "^2.2.0",
-    "@google/genai": "^0.1.0"
+    "@google/genai": "*"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "^4.3.4",
