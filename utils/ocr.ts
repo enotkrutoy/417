@@ -2,7 +2,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Jurisdiction } from '../types';
 import { JURISDICTIONS } from '../constants';
 
-// Standard ANSI D-20 Codes
 const EYE_COLORS: Record<string, string> = {
   "BROWN": "BRO", "BLUE": "BLU", "GREEN": "GRN", "HAZEL": "HAZ",
   "BLACK": "BLK", "GRAY": "GRY", "GREY": "GRY", "MAROON": "MAR",
@@ -19,56 +18,35 @@ const normalizeCode = (val: string, map: Record<string, string>): string => {
   if (!val) return "";
   const upper = val.toUpperCase().trim();
   if (map[upper]) return map[upper];
-  const validCodes = Object.values(map);
-  if (validCodes.includes(upper)) return upper;
   for (const key in map) {
       if (upper.includes(key)) return map[key];
   }
   return upper.substring(0, 3);
 };
 
-// Convert "5-08", "5'08", "5 ft 8 in" to "068 in"
 const normalizeHeight = (val: string): string => {
     if (!val) return "";
-    
-    // Check if already in inches format (e.g. "068 in")
-    if (/^\d{3} in$/.test(val)) return val;
-    
-    // Extract numbers
     const numbers = val.match(/\d+/g);
-    if (!numbers) return val;
+    if (!numbers) return "";
 
-    // If single number > 20, assume cm, e.g. 175
-    if (numbers.length === 1 && parseInt(numbers[0]) > 25) {
-        return val + " cm"; // Canada uses CM
+    if (val.toLowerCase().includes("cm") || (numbers.length === 1 && parseInt(numbers[0]) > 100)) {
+        return numbers[0].padStart(3, '0') + " cm";
     }
 
-    // Assume Feet/Inches
     let inches = 0;
-    if (numbers.length >= 1) {
-        inches += parseInt(numbers[0]) * 12; // Feet
-    }
-    if (numbers.length >= 2) {
-        inches += parseInt(numbers[1]); // Inches
-    }
+    if (numbers.length >= 1) inches += parseInt(numbers[0]) * 12;
+    if (numbers.length >= 2) inches += parseInt(numbers[1]);
     
     return inches.toString().padStart(3, '0') + " in";
 };
 
-// Convert ISO YYYY-MM-DD or various formats to MMDDYYYY
 const normalizeDate = (val: string): string => {
     if (!val) return "";
     const clean = val.replace(/\D/g, '');
-    
-    // If already 8 digits, heuristics to check format
     if (clean.length === 8) {
-        const yearStart = parseInt(clean.substring(0, 4));
-        // If starts with valid year (e.g. 1990...), it's YYYYMMDD -> convert to MMDDYYYY
-        if (yearStart > 1900 && yearStart < 2100) {
-            const yyyy = clean.substring(0, 4);
-            const mm = clean.substring(4, 6);
-            const dd = clean.substring(6, 8);
-            return `${mm}${dd}${yyyy}`;
+        // If YYYYMMDD, flip to MMDDYYYY
+        if (parseInt(clean.substring(0, 4)) > 1900) {
+            return clean.substring(4, 6) + clean.substring(6, 8) + clean.substring(0, 4);
         }
     }
     return clean;
@@ -82,36 +60,18 @@ export const preprocessImage = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const MAX_DIMENSION = 2048; 
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height && width > MAX_DIMENSION) {
-          height *= MAX_DIMENSION / width;
-          width = MAX_DIMENSION;
-        } else if (height > width && height > MAX_DIMENSION) {
-          width *= MAX_DIMENSION / height;
-          height = MAX_DIMENSION;
+        const MAX_DIM = 2048;
+        let w = img.width, h = img.height;
+        if (w > MAX_DIM || h > MAX_DIM) {
+          const ratio = Math.min(MAX_DIM/w, MAX_DIM/h);
+          w *= ratio; h *= ratio;
         }
-
-        canvas.width = width;
-        canvas.height = height;
-
-        if (!ctx) {
-            resolve((event.target?.result as string).split(',')[1]);
-            return;
-        }
-        
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect(0, 0, width, height);
-        ctx.filter = 'contrast(1.2) brightness(1.05) saturate(1.1)';
-        ctx.imageSmoothingEnabled = true;
-        ctx.imageSmoothingQuality = 'high';
-        ctx.drawImage(img, 0, 0, width, height);
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
-        resolve(dataUrl.split(',')[1]);
+        canvas.width = w; canvas.height = h;
+        if (!ctx) return resolve("");
+        ctx.filter = 'contrast(1.1) brightness(1.02)';
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
       };
-      img.onerror = reject;
       img.src = event.target?.result as string;
     };
     reader.readAsDataURL(file);
@@ -119,30 +79,16 @@ export const preprocessImage = (file: File): Promise<string> => {
 };
 
 export const scanDLWithGemini = async (base64Image: string, apiKey: string): Promise<Record<string, string>> => {
-  if (!apiKey) throw new Error("API Key is missing.");
-  
   const ai = new GoogleGenAI({ apiKey });
-  const modelId = "gemini-2.5-flash";
-
   const response = await ai.models.generateContent({
-    model: modelId,
+    model: "gemini-2.0-flash-exp",
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
-        {
-          text: `Extract data from this US/Canada Driver's License. Return strictly compliant AAMVA PDF417 raw data values.
-                 
-                 RULES:
-                 1. DATES: Format as MMDDYYYY (USA) or CCYYMMDD (Canada). NO separators.
-                 2. SEX: Return '1' (Male), '2' (Female). If text says 'M' or 'Male' return '1'.
-                 3. HEIGHT: Format as '000 in' (e.g. 5'09" = '069 in').
-                 4. EYES/HAIR: Extract text (e.g. Brown).
-                 5. STATE: 2-letter code.
-                 6. ADDRESS: Street, City, Zip (only numbers and hyphen).
-                 7. CLASS: License class code.
-                 8. RESTRICTIONS/ENDORSEMENTS: Return 'NONE' if empty.
-                 `
-        }
+        { text: `Extract all AAMVA data elements. 
+                Look specifically for DD (Document Discriminator) or Audit Number and map to DCF.
+                Dates: MMDDYYYY. Sex: 1 (M), 2 (F). Height: 5'08'' or 175cm.
+                Return JSON.` }
       ]
     },
     config: {
@@ -150,73 +96,33 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          DCS: { type: Type.STRING },
-          DAC: { type: Type.STRING },
-          DAD: { type: Type.STRING },
-          DAQ: { type: Type.STRING },
-          DBB: { type: Type.STRING },
-          DBA: { type: Type.STRING },
-          DBD: { type: Type.STRING },
-          DAG: { type: Type.STRING },
-          DAI: { type: Type.STRING },
-          DAJ: { type: Type.STRING },
-          DAK: { type: Type.STRING },
-          DBC: { type: Type.STRING },
-          DAU: { type: Type.STRING },
-          DAW: { type: Type.STRING },
-          DAY: { type: Type.STRING },
-          DAZ: { type: Type.STRING },
-          DCA: { type: Type.STRING },
-          DCB: { type: Type.STRING },
-          DCD: { type: Type.STRING },
-          DCF: { type: Type.STRING },
-          DCG: { type: Type.STRING }
-        },
-        required: ["DCS", "DAC", "DAQ", "DBB", "DBA", "DAJ"]
+          DCS: { type: Type.STRING }, DAC: { type: Type.STRING }, DAD: { type: Type.STRING },
+          DAQ: { type: Type.STRING }, DBB: { type: Type.STRING }, DBA: { type: Type.STRING },
+          DBD: { type: Type.STRING }, DAG: { type: Type.STRING }, DAI: { type: Type.STRING },
+          DAJ: { type: Type.STRING }, DAK: { type: Type.STRING }, DBC: { type: Type.STRING },
+          DAU: { type: Type.STRING }, DAW: { type: Type.STRING }, DAY: { type: Type.STRING },
+          DAZ: { type: Type.STRING }, DCA: { type: Type.STRING }, DCB: { type: Type.STRING },
+          DCD: { type: Type.STRING }, DCF: { type: Type.STRING }, DCG: { type: Type.STRING }
+        }
       }
     }
   });
 
-  const text = response.text;
-  if (!text) return {};
-
   try {
-    const rawData = JSON.parse(text);
-    const sanitized: Record<string, string> = {};
-    
-    Object.keys(rawData).forEach(key => {
-        let val = rawData[key];
-        if (typeof val === 'number') val = String(val);
-        if (typeof val !== 'string') return;
-        
-        val = val.trim();
-
-        // Normalizers
-        if (key === 'DAY') val = normalizeCode(val, EYE_COLORS);
-        if (key === 'DAZ') val = normalizeCode(val, HAIR_COLORS);
-        if (key === 'DAU') val = normalizeHeight(val);
-        if (key.startsWith('DB') || key === 'DEB') val = normalizeDate(val);
-        
-        if (key === 'DBC') {
-             const v = val.toUpperCase();
-             if (v === 'M' || v === 'MALE') val = '1';
-             else if (v === 'F' || v === 'FEMALE') val = '2';
-             else if (v === '1' || v === '2') {} // keep as is
-             else val = '1'; // fallback
-        }
-        
-        sanitized[key] = val;
+    const raw = JSON.parse(response.text || "{}");
+    const out: Record<string, string> = {};
+    Object.keys(raw).forEach(k => {
+      let v = String(raw[k] || "");
+      if (k === 'DAY') v = normalizeCode(v, EYE_COLORS);
+      if (k === 'DAZ') v = normalizeCode(v, HAIR_COLORS);
+      if (k === 'DAU') v = normalizeHeight(v);
+      if (k.startsWith('DB') || k === 'DEB') v = normalizeDate(v);
+      out[k] = v;
     });
-    
-    return sanitized;
-  } catch (e) {
-    console.error("Failed to parse Gemini response", e);
-    return {};
-  }
+    return out;
+  } catch (e) { return {}; }
 };
 
 export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {
-    if (!code) return null;
-    const upper = code.toUpperCase();
-    return JURISDICTIONS.find(j => j.code === upper && !j.name.includes("Old")) || null;
+    return JURISDICTIONS.find(j => j.code === (code || "").toUpperCase() && !j.name.includes("Old")) || null;
 }
