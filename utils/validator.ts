@@ -1,95 +1,45 @@
 
 import { DLFormData, ValidationField, ValidationReport, ValidationStatus } from '../types';
 
-const MANDATORY_TAGS: Record<string, string> = {
-  'DAQ': 'ID Number',
-  'DCS': 'Family Name',
-  'DAC': 'Given Name',
-  'DBB': 'Date of Birth',
-  'DBA': 'Expiry Date',
-  'DBD': 'Issue Date',
-  'DAJ': 'State/Province',
-  'DCG': 'Country',
-  'DCF': 'Document Discriminator'
-};
-
-export const parseAAMVARaw = (raw: string): { data: Record<string, string>; error?: string } => {
-  const result: Record<string, string> = {};
-  
-  if (!raw.startsWith('@')) return { data: {}, error: "Invalid Compliance Indicator (expected @)" };
-
-  try {
-    // 1. Read Header Metadata
-    // Bytes 5-9: ANSI (Check)
-    const fileType = raw.substring(4, 9);
-    if (fileType !== "ANSI ") return { data: {}, error: "Unsupported File Type (expected ANSI )" };
-
-    // 2. Read Subfile Designator for DL
-    // Each subfile designator is 10 bytes starting from byte 21
-    const numEntries = parseInt(raw.substring(19, 21), 10);
-    
-    for (let i = 0; i < numEntries; i++) {
-      const designatorStart = 21 + (i * 10);
-      const type = raw.substring(designatorStart, designatorStart + 2);
-      const offset = parseInt(raw.substring(designatorStart + 2, designatorStart + 6), 10);
-      const length = parseInt(raw.substring(designatorStart + 6, designatorStart + 10), 10);
-
-      // Extract the subfile block
-      const subfileBlock = raw.substring(offset, offset + length);
-      // Skip the 2-char type header (e.g. "DL")
-      const content = subfileBlock.substring(2);
-      
-      // Split by LF (0x0A) or CR (0x0D)
-      const elements = content.split(/[\n\r]/);
-      
-      elements.forEach(el => {
-        if (el.length < 3) return;
-        const tag = el.substring(0, 3);
-        const val = el.substring(3).trim();
-        result[tag] = val;
-      });
-    }
-
-    return { data: result };
-  } catch (e) {
-    return { data: {}, error: "Structure parsing failed (corrupted format)" };
-  }
-};
-
-export const validateBarcode = (scannedRaw: string, formData: DLFormData): ValidationReport => {
-  const { data: scannedMap, error } = parseAAMVARaw(scannedRaw);
+export const validateAAMVAStructure = (raw: string, formData: DLFormData): ValidationReport => {
   const fields: ValidationField[] = [];
-  let scorePoints = 0;
+  let score = 0;
+  let errors = [];
 
-  Object.entries(MANDATORY_TAGS).forEach(([tag, desc]) => {
-    const formVal = (formData[tag] || "").toUpperCase().replace(/\s/g, '');
-    const scanVal = (scannedMap[tag] || "").toUpperCase().replace(/\s/g, '');
+  // 1. Проверка Header (21 байт)
+  const isHeaderLenValid = raw.length >= 21;
+  const compliance = raw[0];
+  const separators = raw.substring(1, 4);
+  const fileType = raw.substring(4, 9);
+  const version = raw.substring(15, 17);
 
-    let status: ValidationStatus = 'MATCH';
-    
-    if (!scannedMap[tag]) {
-      status = 'MISSING_IN_SCAN';
-    } else if (formVal !== scanVal) {
-      status = 'MISMATCH';
-    } else {
-      scorePoints++;
-    }
+  if (compliance !== '@') errors.push("Compliance indicator '@' missing");
+  if (separators !== "\x0A\x1E\x0D") errors.push("Header separators (LF, RS, CR) incorrect");
+  if (fileType !== "ANSI ") errors.push("File type must be 'ANSI '");
+  if (version !== "10") errors.push("AAMVA Version must be '10' for 2020 standard");
 
+  // 2. Проверка Designator (оффсет 31 для 1 записи)
+  const offset = parseInt(raw.substring(23, 27), 10);
+  if (offset !== 31) errors.push(`Designator offset mismatch (expected 0031, got ${raw.substring(23, 27)})`);
+
+  // 3. Сверка данных
+  const mandatory = ['DAQ', 'DCS', 'DAC', 'DBB', 'DBA'];
+  mandatory.forEach(tag => {
+    const exists = raw.includes(tag);
+    if (exists) score += 20;
     fields.push({
       elementId: tag,
-      description: desc,
-      formValue: formData[tag] || "N/A",
-      scannedValue: scannedMap[tag] || "N/A",
-      status
+      description: `Tag ${tag} presence`,
+      formValue: formData[tag as keyof DLFormData] || "NONE",
+      scannedValue: exists ? "PRESENT" : "MISSING",
+      status: exists ? 'MATCH' : 'MISSING_IN_SCAN'
     });
   });
 
-  const overallScore = Math.round((scorePoints / Object.keys(MANDATORY_TAGS).length) * 100);
-
   return {
-    isHeaderValid: !error,
-    rawString: scannedRaw,
+    isHeaderValid: errors.length === 0,
+    rawString: raw,
     fields,
-    overallScore
+    overallScore: errors.length === 0 ? Math.min(score, 100) : 0
   };
 };
