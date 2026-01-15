@@ -8,7 +8,7 @@ import { validateAAMVAStructure } from './utils/validator';
 import BarcodeCanvas from './components/BarcodeCanvas';
 import { 
   ArrowLeft, Camera, Search, Settings, Key, Fingerprint,
-  ShieldCheck, AlertCircle, RefreshCw, ClipboardCheck, Check, ExternalLink, Info
+  ShieldCheck, ClipboardCheck, Check, Info
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -41,7 +41,7 @@ const App: React.FC = () => {
       ...prev, 
       DAJ: jur.code, 
       IIN: jur.iin, 
-      Version: '10', // Всегда 10 для 2020 стандарта
+      Version: '10',
       DCG: jur.country || 'USA',
       DBD: new Date().toISOString().slice(0, 10).replace(/-/g, '')
     }));
@@ -66,6 +66,7 @@ const App: React.FC = () => {
       }
       setStep('FORM');
     } catch (err) {
+      console.error(err);
       alert("AI scan failed.");
     } finally {
       setIsScanning(false);

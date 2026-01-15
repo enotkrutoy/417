@@ -1,19 +1,15 @@
+
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
-  // Load env file based on `mode` in the current working directory.
-  const env = loadEnv(mode, (process as any).cwd(), '');
-  
-  // Prioritize VITE_API_KEY, fallback to API_KEY, default to empty string
+  // Use process.cwd() to get the current working directory for loading environment variables
+  const env = loadEnv(mode, process.cwd(), '');
   const apiKey = env.VITE_API_KEY || env.API_KEY || '';
 
   return {
     plugins: [react()],
     define: {
-      // By using JSON.stringify, we ensure the code receives a string literal (e.g., "AIza...")
-      // or an empty string literal "" if undefined. This prevents 'process is not defined' errors.
       'process.env.API_KEY': JSON.stringify(apiKey),
     },
     build: {
@@ -22,7 +18,7 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             'react-vendor': ['react', 'react-dom'],
-            'utils-vendor': ['bwip-js', '@zxing/library', 'tesseract.js'],
+            'utils-vendor': ['bwip-js', '@zxing/library'],
             'genai-vendor': ['@google/genai'],
             'ui-vendor': ['lucide-react', 'clsx', 'tailwind-merge']
           }

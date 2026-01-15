@@ -1,5 +1,5 @@
 
-import { DLFormData, ValidationField, ValidationReport, ValidationStatus } from '../types';
+import { DLFormData, ValidationField, ValidationReport } from '../types';
 
 export const validateAAMVAStructure = (raw: string, formData: DLFormData): ValidationReport => {
   const fields: ValidationField[] = [];
@@ -7,7 +7,6 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
   let errors = [];
 
   // 1. Проверка Header (21 байт)
-  const isHeaderLenValid = raw.length >= 21;
   const compliance = raw[0];
   const separators = raw.substring(1, 4);
   const fileType = raw.substring(4, 9);
@@ -19,8 +18,9 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
   if (version !== "10") errors.push("AAMVA Version must be '10' for 2020 standard");
 
   // 2. Проверка Designator (оффсет 31 для 1 записи)
-  const offset = parseInt(raw.substring(23, 27), 10);
-  if (offset !== 31) errors.push(`Designator offset mismatch (expected 0031, got ${raw.substring(23, 27)})`);
+  const offsetStr = raw.substring(23, 27);
+  const offset = parseInt(offsetStr, 10);
+  if (offset !== 31) errors.push(`Designator offset mismatch (expected 0031, got ${offsetStr})`);
 
   // 3. Сверка данных
   const mandatory = ['DAQ', 'DCS', 'DAC', 'DBB', 'DBA'];
