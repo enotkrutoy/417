@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { JURISDICTIONS } from './constants';
 import { Jurisdiction, DLFormData } from './types';
@@ -49,15 +48,21 @@ const App: React.FC = () => {
   };
 
   const handleImageScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files?.[0] || !apiKey) {
-      if (!apiKey) setIsSettingsOpen(true);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!apiKey) {
+      setIsSettingsOpen(true);
       return;
     }
+
     setIsScanning(true);
     try {
-      const base64 = await preprocessImage(e.target.files[0]);
+      const base64 = await preprocessImage(file);
       const updates = await scanDLWithGemini(base64, apiKey);
+      
       let detectedJur = updates.DAJ ? detectJurisdictionFromCode(updates.DAJ) : null;
+      
       if (detectedJur) {
         setSelectedJurisdiction(detectedJur);
         setFormData(prev => ({ ...prev, ...updates, IIN: detectedJur.iin, DAJ: detectedJur.code }));
@@ -65,11 +70,18 @@ const App: React.FC = () => {
         setFormData(prev => ({ ...prev, ...updates }));
       }
       setStep('FORM');
-    } catch (err) {
-      console.error(err);
-      alert("AI scan failed.");
+    } catch (err: any) {
+      console.error("Full Scan Error Details:", err);
+      const msg = err.message || "An unknown error occurred during AI scanning.";
+      alert(`AI Scan Failed: ${msg}`);
+      
+      // If unauthorized, prompt for settings
+      if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("api key")) {
+        setIsSettingsOpen(true);
+      }
     } finally {
       setIsScanning(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 

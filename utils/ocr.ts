@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Jurisdiction } from '../types';
 import { JURISDICTIONS } from '../constants';
@@ -11,7 +10,7 @@ export const preprocessImage = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const SCALE = 1600; // Reduced from 2500 to prevent payload size issues
+        const SCALE = 1024; // Lowered from 1600 for better reliability
         let w = img.width, h = img.height;
         if (w > SCALE || h > SCALE) {
           const r = Math.min(SCALE/w, SCALE/h);
@@ -34,7 +33,7 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
   const ai = new GoogleGenAI({ apiKey });
   
   const response = await ai.models.generateContent({
-    model: 'gemini-flash-latest', // Using latest for better stability across regions
+    model: 'gemini-3-flash-preview', 
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64 } },
@@ -81,17 +80,24 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
   });
 
   try {
-    const raw = JSON.parse(response.text || "{}");
+    let jsonText = response.text || "{}";
+    // Sanitize response text: remove markdown code blocks if they exist
+    if (jsonText.includes('```')) {
+      jsonText = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+    }
+    
+    const raw = JSON.parse(jsonText);
     const cleaned: Record<string, string> = {};
     Object.keys(raw).forEach(key => {
       let val = String(raw[key] || "").toUpperCase().trim();
+      // Only keep digits for dates
       if (['DBA', 'DBB', 'DBD'].includes(key)) val = val.replace(/\D/g, '');
       cleaned[key] = val;
     });
     return cleaned;
   } catch (e) {
-    console.error("Gemini Parse Error:", e);
-    return {};
+    console.error("Gemini Response Processing Error:", e);
+    throw new Error("Failed to parse AI response. Ensure your image is clear and try again.");
   }
 };
 
