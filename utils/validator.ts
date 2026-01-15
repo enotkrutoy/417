@@ -1,9 +1,8 @@
 import { DLFormData, ValidationField, ValidationReport } from '../types';
 
-// Map AAMVA Element IDs to readable descriptions and Form Keys
 const ELEMENT_MAP: Record<string, { desc: string, formKey: keyof DLFormData, regex?: RegExp }> = {
   'DAQ': { desc: 'License Number', formKey: 'DAQ', regex: /^[A-Z0-9]+$/i },
-  'DBA': { desc: 'Expiration Date', formKey: 'DBA', regex: /^\d{8}$/ }, // MMDDYYYY
+  'DBA': { desc: 'Expiration Date', formKey: 'DBA', regex: /^\d{8}$/ }, 
   'DCS': { desc: 'Last Name', formKey: 'DCS', regex: /^[A-Z\s-]+$/i },
   'DAC': { desc: 'First Name', formKey: 'DAC', regex: /^[A-Z\s-]+$/i },
   'DAD': { desc: 'Middle Name', formKey: 'DAD' },
@@ -19,49 +18,47 @@ const ELEMENT_MAP: Record<string, { desc: string, formKey: keyof DLFormData, reg
   'DBC': { desc: 'Sex', formKey: 'DBC', regex: /^[12X]$/ },
   'DAU': { desc: 'Height', formKey: 'DAU' },
   'DAW': { desc: 'Weight', formKey: 'DAW' },
-  'DAY': { desc: 'Eye Color', formKey: 'DAZ', regex: /^[A-Z]{3}$/ }, // Maps to DAY on form, fix typings later if needed
+  'DAY': { desc: 'Eye Color', formKey: 'DAY', regex: /^[A-Z]{3}$/ }, 
+  'DAZ': { desc: 'Hair Color', formKey: 'DAZ', regex: /^[A-Z]{3}$/ },
   'DCB': { desc: 'Restrictions', formKey: 'DCB' },
   'DCD': { desc: 'Endorsements', formKey: 'DCD' },
   'DCF': { desc: 'Doc Discriminator', formKey: 'DCF' },
   'DCG': { desc: 'Country', formKey: 'DCG', regex: /^[A-Z]{3}$/ }
 };
 
-/**
- * Parses a raw AAMVA string (PDF417 content) into a key-value map.
- * Now includes Header Integrity Check.
- */
 const parseAAMVARaw = (raw: string): { data: Record<string, string>, error?: string } => {
   const result: Record<string, string> = {};
   
-  // 1. Basic Signature Check
   if (!raw.startsWith('@')) return { data: {}, error: "Missing Compliance Indicator (@)" };
   if (!raw.includes('ANSI')) return { data: {}, error: "Missing 'ANSI' File Type" };
 
-  // 2. Extract Offset from Header
-  // Header structure: @(1) + Sep(1) + Rec(1) + Seg(1) + ANSI (5) + IIN(6) + V(2) + JV(2) + Entries(2)
-  // Total Header Fixed = 21 bytes.
-  // Subfile Designator 1 starts at index 21.
-  // Designator: Type(2) + Offset(4) + Length(4)
-  
-  const offsetStr = raw.substring(23, 27); // Bytes 23-27 is the Offset for the first subfile
+  // Offset extraction (Bytes 23-27 for 1st subfile)
+  const offsetStr = raw.substring(23, 27);
   const offset = parseInt(offsetStr, 10);
   
   if (isNaN(offset)) return { data: {}, error: "Invalid Header Offset" };
-  
-  // 3. Jump to Data Block
-  // The data block starts exactly at 'offset'.
-  // We slice the string from that point to parse elements.
-  // If the offset is out of bounds, the barcode is garbage.
   if (offset >= raw.length) return { data: {}, error: "Offset points outside file bounds" };
 
-  const dataBlock = raw.substring(offset);
+  // The Data Block starts at offset.
+  // It SHOULD begin with "DL" (the Subfile Type repeated).
+  let dataBlock = raw.substring(offset);
   
-  // 4. Split and Map
+  // Robustness: If data block starts with "DL", strip it to parse fields.
+  // This confirms the "DL" prefix exists in the data as required.
+  if (dataBlock.startsWith("DL")) {
+      dataBlock = dataBlock.substring(2);
+  } else if (dataBlock.startsWith("ID")) {
+      dataBlock = dataBlock.substring(2);
+  } else {
+      // If missing, it's technically a format violation for strict hardware scanners,
+      // but we continue parsing for soft validation.
+      console.warn("Subfile Type missing from Data Block start");
+  }
+  
   const lines = dataBlock.split('\n');
 
   lines.forEach(line => {
     line = line.trim();
-    // AAMVA Elements are 3 uppercase letters followed by data
     const match = line.match(/^([A-Z]{3})(.*)$/);
     if (match) {
       const key = match[1];
@@ -92,10 +89,8 @@ export const validateBarcode = (rawString: string, currentFormData: DLFormData):
   }
 
   Object.entries(ELEMENT_MAP).forEach(([elId, config]) => {
-    // If we have a critical header error, we might not have data, but we process what we found
     const keyExists = Object.prototype.hasOwnProperty.call(scannedData, elId);
     const scannedVal = scannedData[elId];
-    // Cast strict type
     const formKey = config.formKey as keyof DLFormData;
     const formVal = currentFormData[formKey];
 

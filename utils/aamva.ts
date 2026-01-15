@@ -42,7 +42,7 @@ export const generateAAMVAString = (data: DLFormData): string => {
   fields.push(`DDA${formatField(data.DDA, 1, true)}`); // Compliance
   
   // Ensure DEB/DBB/DBA/DBD are purely numeric 8 digits
-  const cleanDate = (d: string) => d.replace(/\D/g, '').slice(0, 8);
+  const cleanDate = (d: string) => d ? d.replace(/\D/g, '').slice(0, 8) : "";
   
   fields.push(`DEB${cleanDate(data.DEB)}`); // File Create Date
   fields.push(`DAQ${formatField(data.DAQ, 25, true)}`); // License #
@@ -60,7 +60,7 @@ export const generateAAMVAString = (data: DLFormData): string => {
   
   // Height: Ensure format "069 in" or "175 cm"
   let height = data.DAU;
-  if (!height.includes(' ')) {
+  if (height && !height.includes(' ')) {
       // Assuming user typed "069", append " in" default
       height = height + " in"; 
   }
@@ -81,8 +81,10 @@ export const generateAAMVAString = (data: DLFormData): string => {
   fields.push(`DDGN`); 
 
   // Join fields with LF. 
-  // NOTE: The data block starts immediately with the first Tag (DDA). No "DL" prefix here.
-  let subfileData = fields.join(DATA_ELEMENT_SEPARATOR);
+  // CRITICAL: The Data Block MUST begin with the Subfile Type ("DL").
+  // This is implicit in the standard examples (e.g. ...00410278DLDAQT...).
+  // Without this "DL" prefix in the data, hardware scanners will fail to identify the start of the block.
+  let subfileData = "DL" + fields.join(DATA_ELEMENT_SEPARATOR);
   
   // Append Subfile Terminator (LF) before the Segment Terminator
   subfileData += DATA_ELEMENT_SEPARATOR;
@@ -90,7 +92,6 @@ export const generateAAMVAString = (data: DLFormData): string => {
   // --- 2. Calculate Offsets & Lengths ---
   
   // We are generating 1 Subfile ("DL").
-  // If we wanted to add "ZV" (Jurisdiction Specific), we would set numEntries=2 and repeat logic.
   const numEntries = 1; 
   
   const headerSize = 21;
@@ -127,7 +128,7 @@ export const generateAAMVAString = (data: DLFormData): string => {
   raw += offsetStr;              // Offset to data
   raw += lengthStr;              // Length of this subfile
 
-  // 3c. Subfile Data
+  // 3c. Subfile Data (Includes "DL" prefix + fields + LF)
   raw += subfileData;
   
   // 3d. Final Segment Terminator

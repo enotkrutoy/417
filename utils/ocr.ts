@@ -2,15 +2,28 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Jurisdiction } from '../types';
 import { JURISDICTIONS } from '../constants';
 
-/**
- * Preprocesses image to Base64 for the API.
- * 
- * BEST PRACTICES FOR OCR/LLM INPUT:
- * 1. Resolution: Increased to 2048px (1024px is often too small for fine print on DLs).
- * 2. Contrast: Boosted to separate text from security background patterns.
- * 3. Brightness: Slight boost to normalize lighting.
- * 4. Compression: High quality JPEG (0.92) to prevent artifacts on text edges.
- */
+// Standard ANSI D-20 Codes
+const EYE_COLORS: Record<string, string> = {
+  "BROWN": "BRO", "BLUE": "BLU", "GREEN": "GRN", "HAZEL": "HAZ",
+  "BLACK": "BLK", "GRAY": "GRY", "GREY": "GRY", "MAROON": "MAR",
+  "PINK": "PNK", "DICHROMATIC": "DIC"
+};
+
+const HAIR_COLORS: Record<string, string> = {
+  "BROWN": "BRO", "BLOND": "BLN", "BLONDE": "BLN", "BLACK": "BLK",
+  "RED": "RED", "WHITE": "WHI", "GRAY": "GRY", "GREY": "GRY",
+  "BALD": "BAL", "SANDY": "SDY", "AUBURN": "RED" // Auburn maps to Red usually
+};
+
+const normalizeCode = (val: string, map: Record<string, string>): string => {
+  if (!val) return "";
+  const upper = val.toUpperCase().trim();
+  if (map[upper]) return map[upper];
+  // If it's already a valid 3-letter code, return it
+  if (Object.values(map).includes(upper)) return upper;
+  return upper.substring(0, 3); // Fallback
+};
+
 export const preprocessImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -19,13 +32,10 @@ export const preprocessImage = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-
-        // Target ~4MP for optimal balance of detail vs token usage/upload speed
         const MAX_DIMENSION = 2048; 
         let width = img.width;
         let height = img.height;
 
-        // Calculate aspect ratio preserving dimensions
         if (width > height && width > MAX_DIMENSION) {
           height *= MAX_DIMENSION / width;
           width = MAX_DIMENSION;
@@ -38,28 +48,16 @@ export const preprocessImage = (file: File): Promise<string> => {
         canvas.height = height;
 
         if (!ctx) {
-            // Fallback if context fails
             resolve((event.target?.result as string).split(',')[1]);
             return;
         }
         
-        // 1. Fill white background (handles transparent PNGs nicely)
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, width, height);
-
-        // 2. Apply Filters to enhance Text Legibility
-        // contrast(1.2): Makes dark text darker and light backgrounds lighter.
-        // brightness(1.05): Compenses for potentially dark indoor photos.
-        // saturate(1.1): Helps preserve color cues (like Red headers) while boosting signal.
         ctx.filter = 'contrast(1.2) brightness(1.05) saturate(1.1)';
-
-        // 3. Draw image with high-quality smoothing
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
-
-        // 4. Export as High Quality JPEG
-        // 0.92 reduces artifacting around text edges compared to standard 0.8
         const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
         resolve(dataUrl.split(',')[1]);
       };
@@ -70,45 +68,30 @@ export const preprocessImage = (file: File): Promise<string> => {
   });
 };
 
-/**
- * Uses Google Gemini Vision (Flash) to extract structured DL data.
- */
 export const scanDLWithGemini = async (base64Image: string, apiKey: string): Promise<Record<string, string>> => {
-  if (!apiKey) {
-    throw new Error("API Key is missing. Please provide a valid Gemini API Key.");
-  }
+  if (!apiKey) throw new Error("API Key is missing.");
   
   const ai = new GoogleGenAI({ apiKey });
-  
-  // Use 'gemini-2.5-flash' as requested
   const modelId = "gemini-2.5-flash";
 
   const response = await ai.models.generateContent({
     model: modelId,
     contents: {
       parts: [
+        { inlineData: { mimeType: 'image/jpeg', data: base64Image } },
         {
-          inlineData: {
-            mimeType: 'image/jpeg',
-            data: base64Image
-          }
-        },
-        {
-          text: `You are an expert OCR system for AAMVA Compliant Driver's Licenses. Extract data strictly adhering to the PDF417 raw data standards.
+          text: `Extract data from this US/Canada Driver's License. Return strictly compliant AAMVA PDF417 raw data values.
                  
-                 CRITICAL FORMATTING RULES (FAILURE TO FOLLOW BREAKS THE BARCODE):
-                 1. DATES: MUST be MMDDYYYY (USA) or CCYYMMDD (Canada). NO separators (/, -, .). Example: '09141976'.
-                 2. SEX: Return '1' for Male, '2' for Female. Do NOT return 'M' or 'F'.
-                 3. HEIGHT:
-                    - USA: Convert to inches. Format: 3 digits followed by ' in'. Example: 5'09" -> '069 in'.
-                    - Canada: Centimeters. Format: 3 digits followed by ' cm'. Example: '175 cm'.
-                 4. EYES/HAIR: Use ANSI D-20 3-letter codes (BRO, BLU, GRN, BLK, GRY, HAZ).
-                 5. STATE: 2-letter uppercase code (e.g. TX, CA, FL).
-                 6. ZIP: Use 5 digits or 9 digits (no hyphen) if possible, but keep hyphen if visible.
-                 7. RESTRICTIONS/ENDORSEMENTS: If none visible, return "NONE".
-                 8. CLASS: Usually 1 character (C, D, A).
-                 
-                 If a field is partially obscured, infer from context or leave empty string.`
+                 RULES:
+                 1. DATES: Format as MMDDYYYY (USA) or CCYYMMDD (Canada). NO separators.
+                 2. SEX: Return '1' (Male), '2' (Female).
+                 3. HEIGHT: Format as '000 in' (e.g. 5'09" = '069 in').
+                 4. EYES/HAIR: Extract the text (e.g. Brown, Blue).
+                 5. STATE: 2-letter code.
+                 6. ADDRESS: Street, City, Zip (only numbers and hyphen).
+                 7. CLASS: License class code.
+                 8. RESTRICTIONS/ENDORSEMENTS: Return 'NONE' if empty.
+                 `
         }
       ]
     },
@@ -117,27 +100,27 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          DCS: { type: Type.STRING, description: "Family Name" },
-          DAC: { type: Type.STRING, description: "First Name" },
-          DAD: { type: Type.STRING, description: "Middle Name" },
-          DAQ: { type: Type.STRING, description: "License Number" },
-          DBB: { type: Type.STRING, description: "DOB (MMDDYYYY)" },
-          DBA: { type: Type.STRING, description: "Expiration (MMDDYYYY)" },
-          DBD: { type: Type.STRING, description: "Issue Date (MMDDYYYY)" },
-          DAG: { type: Type.STRING, description: "Street Address" },
-          DAI: { type: Type.STRING, description: "City" },
-          DAJ: { type: Type.STRING, description: "State (2 char)" },
-          DAK: { type: Type.STRING, description: "Zip Code" },
-          DBC: { type: Type.STRING, description: "Sex (1=M, 2=F)" },
-          DAU: { type: Type.STRING, description: "Height (e.g. 069 in)" },
-          DAW: { type: Type.STRING, description: "Weight (lbs/kg)" },
-          DAY: { type: Type.STRING, description: "Eye Color (3 chars)" },
-          DAZ: { type: Type.STRING, description: "Hair Color (3 chars)" },
-          DCA: { type: Type.STRING, description: "Class" },
-          DCB: { type: Type.STRING, description: "Restrictions" },
-          DCD: { type: Type.STRING, description: "Endorsements" },
-          DCF: { type: Type.STRING, description: "Doc Discriminator" },
-          DCG: { type: Type.STRING, description: "Country (USA/CAN)" }
+          DCS: { type: Type.STRING },
+          DAC: { type: Type.STRING },
+          DAD: { type: Type.STRING },
+          DAQ: { type: Type.STRING },
+          DBB: { type: Type.STRING },
+          DBA: { type: Type.STRING },
+          DBD: { type: Type.STRING },
+          DAG: { type: Type.STRING },
+          DAI: { type: Type.STRING },
+          DAJ: { type: Type.STRING },
+          DAK: { type: Type.STRING },
+          DBC: { type: Type.STRING },
+          DAU: { type: Type.STRING },
+          DAW: { type: Type.STRING },
+          DAY: { type: Type.STRING },
+          DAZ: { type: Type.STRING },
+          DCA: { type: Type.STRING },
+          DCB: { type: Type.STRING },
+          DCD: { type: Type.STRING },
+          DCF: { type: Type.STRING },
+          DCG: { type: Type.STRING }
         },
         required: ["DCS", "DAC", "DAQ", "DBB", "DBA", "DAJ"]
       }
@@ -151,15 +134,20 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
     const rawData = JSON.parse(text);
     const sanitized: Record<string, string> = {};
     
-    // Ensure we only return string values to satisfy strict types in App.tsx
-    // DLFormData has an index signature [key: string]: string, so no undefined allowed.
     Object.keys(rawData).forEach(key => {
-        const val = rawData[key];
-        if (typeof val === 'string') {
-            sanitized[key] = val;
-        } else if (typeof val === 'number') {
-            sanitized[key] = String(val);
+        let val = rawData[key];
+        if (typeof val === 'number') val = String(val);
+        if (typeof val !== 'string') return;
+        
+        // Post-processing for strict compliance
+        if (key === 'DAY') val = normalizeCode(val, EYE_COLORS);
+        if (key === 'DAZ') val = normalizeCode(val, HAIR_COLORS);
+        if (key === 'DBC') {
+             if (val === 'M' || val === 'Male') val = '1';
+             if (val === 'F' || val === 'Female') val = '2';
         }
+        
+        sanitized[key] = val;
     });
     
     return sanitized;
@@ -169,9 +157,6 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
   }
 };
 
-/**
- * Helper to match State Code to Jurisdiction object
- */
 export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {
     if (!code) return null;
     const upper = code.toUpperCase();
