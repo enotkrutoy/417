@@ -4,7 +4,12 @@ import { JURISDICTIONS } from '../constants';
 
 /**
  * Preprocesses image to Base64 for the API.
- * Compresses large images to save bandwidth while maintaining readability.
+ * 
+ * BEST PRACTICES FOR OCR/LLM INPUT:
+ * 1. Resolution: Increased to 2048px (1024px is often too small for fine print on DLs).
+ * 2. Contrast: Boosted to separate text from security background patterns.
+ * 3. Brightness: Slight boost to normalize lighting.
+ * 4. Compression: High quality JPEG (0.92) to prevent artifacts on text edges.
  */
 export const preprocessImage = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -13,31 +18,49 @@ export const preprocessImage = (file: File): Promise<string> => {
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        // Max dimension 1024px is usually enough for DL OCR
-        const maxDim = 1024;
+        const ctx = canvas.getContext('2d');
+
+        // Target ~4MP for optimal balance of detail vs token usage/upload speed
+        const MAX_DIMENSION = 2048; 
         let width = img.width;
         let height = img.height;
 
-        if (width > height && width > maxDim) {
-          height *= maxDim / width;
-          width = maxDim;
-        } else if (height > width && height > maxDim) {
-          width *= maxDim / height;
-          height = maxDim;
+        // Calculate aspect ratio preserving dimensions
+        if (width > height && width > MAX_DIMENSION) {
+          height *= MAX_DIMENSION / width;
+          width = MAX_DIMENSION;
+        } else if (height > width && height > MAX_DIMENSION) {
+          width *= MAX_DIMENSION / height;
+          height = MAX_DIMENSION;
         }
 
         canvas.width = width;
         canvas.height = height;
-        const ctx = canvas.getContext('2d');
+
         if (!ctx) {
-            // Fallback to original if context fails
+            // Fallback if context fails
             resolve((event.target?.result as string).split(',')[1]);
             return;
         }
         
+        // 1. Fill white background (handles transparent PNGs nicely)
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect(0, 0, width, height);
+
+        // 2. Apply Filters to enhance Text Legibility
+        // contrast(1.2): Makes dark text darker and light backgrounds lighter.
+        // brightness(1.05): Compenses for potentially dark indoor photos.
+        // saturate(1.1): Helps preserve color cues (like Red headers) while boosting signal.
+        ctx.filter = 'contrast(1.2) brightness(1.05) saturate(1.1)';
+
+        // 3. Draw image with high-quality smoothing
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(img, 0, 0, width, height);
-        // Return Base64 string without data prefix
-        const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+        // 4. Export as High Quality JPEG
+        // 0.92 reduces artifacting around text edges compared to standard 0.8
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
         resolve(dataUrl.split(',')[1]);
       };
       img.onerror = reject;
@@ -57,7 +80,7 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
   
   const ai = new GoogleGenAI({ apiKey });
   
-  // Use 'gemini-2.5-flash' as requested by user
+  // Use 'gemini-2.5-flash' as requested
   const modelId = "gemini-2.5-flash";
 
   const response = await ai.models.generateContent({
