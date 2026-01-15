@@ -11,7 +11,7 @@ export const preprocessImage = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const SCALE = 2500; 
+        const SCALE = 1600; // Reduced from 2500 to prevent payload size issues
         let w = img.width, h = img.height;
         if (w > SCALE || h > SCALE) {
           const r = Math.min(SCALE/w, SCALE/h);
@@ -19,10 +19,10 @@ export const preprocessImage = (file: File): Promise<string> => {
         }
         canvas.width = w; canvas.height = h;
         if (ctx) {
-          ctx.filter = 'contrast(1.2) brightness(1.0) saturate(1.1)';
+          ctx.filter = 'contrast(1.1) brightness(1.0)';
           ctx.drawImage(img, 0, 0, w, h);
         }
-        resolve(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
+        resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
       };
       img.src = e.target?.result as string;
     };
@@ -34,7 +34,7 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
   const ai = new GoogleGenAI({ apiKey });
   
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-flash-latest', // Using latest for better stability across regions
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64 } },
@@ -90,6 +90,7 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
     });
     return cleaned;
   } catch (e) {
+    console.error("Gemini Parse Error:", e);
     return {};
   }
 };
