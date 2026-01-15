@@ -24,7 +24,7 @@ const App: React.FC = () => {
 
   const [formData, setFormData] = useState<DLFormData>({
     IIN: '', Version: '10', JurisdictionVersion: '00', DDA: 'F',
-    DCA: 'D', DCB: 'NONE', DCD: 'NONE', DBA: '', DCS: '', DAC: '', DAD: '',
+    DCA: 'C', DCB: 'NONE', DCD: 'NONE', DBA: '', DCS: '', DAC: '', DAD: '',
     DBD: '', DBB: '', DBC: '1', DAY: 'BRO', DAU: '5-08',
     DAG: '', DAI: '', DAJ: '', DAK: '', DAQ: '', DCF: '', DCG: 'USA', 
     DAW: '165', DAZ: 'BRO', DEB: ''
@@ -103,7 +103,7 @@ const App: React.FC = () => {
           <div className="max-w-4xl mx-auto space-y-12 py-10">
             <div className="text-center space-y-4">
               <h2 className="text-6xl font-black tracking-tighter bg-gradient-to-b from-white to-slate-500 bg-clip-text text-transparent">Compliance Master</h2>
-              <p className="text-slate-400 text-lg">Генерация PDF417 по стандарту AAMVA 2020 (Версия 10) для систем верификации возраста и госорганов.</p>
+              <p className="text-slate-400 text-lg">Генерация PDF417 по стандарту AAMVA 2020 для систем верификации без отличий от оригинала.</p>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -197,8 +197,8 @@ const App: React.FC = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Height (in)</label>
-                  <input value={formData.DAU} placeholder="070" onChange={e => setFormData({...formData, DAU: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono" />
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Height (F-II)</label>
+                  <input value={formData.DAU} placeholder="5-04" onChange={e => setFormData({...formData, DAU: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase">Eyes</label>
@@ -209,7 +209,7 @@ const App: React.FC = () => {
               </div>
 
               <button onClick={handleGenerate} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-2xl font-black text-xl transition-all shadow-xl shadow-sky-900/20 active:scale-[0.99] flex items-center justify-center gap-3">
-                <ShieldCheck /> GENERATE PROTOCOL STREAM
+                <ShieldCheck /> GENERATE ENCODED STREAM
               </button>
             </div>
 
@@ -230,9 +230,6 @@ const App: React.FC = () => {
                       <Check className="text-emerald-500" size={14} />
                     </div>
                   ))}
-                </div>
-                <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                  <p className="text-[10px] text-amber-500/80 leading-relaxed italic">System validates mandatory tags DCA through DDG for full interoperability.</p>
                 </div>
               </div>
             </div>
@@ -265,7 +262,7 @@ const App: React.FC = () => {
               <div className="bg-slate-950 p-6 rounded-2xl border border-slate-800 font-mono text-[11px] text-slate-400 break-all leading-relaxed shadow-inner max-h-40 overflow-y-auto">
                 {generatedString.split('').map((char, i) => {
                   const code = char.charCodeAt(0);
-                  if (code < 32) return <span key={i} className="text-sky-500 font-bold bg-sky-900/20 px-1 rounded mx-0.5" title={`Char code: ${code}`}>[{code.toString(16).toUpperCase().padStart(2, '0')}]</span>;
+                  if (code < 32) return <span key={i} className="text-sky-500 font-bold bg-sky-900/20 px-1 rounded mx-0.5">[{code.toString(16).toUpperCase().padStart(2, '0')}]</span>;
                   return <span key={i}>{char}</span>;
                 })}
               </div>

@@ -11,9 +11,18 @@ const RS = "\x1E"; // Record Separator
 const CR = "\x0D"; // Segment Terminator / Subfile Terminator
 
 const formatHeight = (h: string) => {
+  // Обработка формата 5-04 или 5'04"
+  const parts = h.split(/['-]/);
+  if (parts.length >= 2) {
+    const feet = parseInt(parts[0], 10) || 0;
+    const inches = parseInt(parts[1], 10) || 0;
+    const totalInches = (feet * 12) + inches;
+    return `${totalInches.toString().padStart(3, '0')} in`;
+  }
+  // Если введены просто цифры (напр. 064)
   const digits = h.replace(/\D/g, '');
-  if (!digits) return "000 in";
-  return `${digits.padStart(3, '0')} in`;
+  if (digits.length > 0) return `${digits.padStart(3, '0')} in`;
+  return "000 in";
 };
 
 const sanitize = (val: string, placeholder = "NONE") => {
@@ -32,8 +41,8 @@ export const generateAAMVAString = (data: DLFormData): string => {
     }
   };
 
-  // Порядок тегов согласно Table D.3 (Рекомендованный для интероперабельности)
-  add("DCA", data.DCA || "D");
+  // Порядок тегов AAMVA 2020
+  add("DCA", data.DCA || "C");
   add("DCB", data.DCB);
   add("DCD", data.DCD);
   add("DBA", data.DBA); // Expiry
@@ -52,29 +61,27 @@ export const generateAAMVAString = (data: DLFormData): string => {
   add("DAQ", data.DAQ); // ID Number
   add("DCF", data.DCF); // Document Disc.
   add("DCG", data.DCG || "USA");
-  add("DDE", data.DDE || "N"); // Truncation indicators
+  add("DDE", data.DDE || "N");
   add("DDF", data.DDF || "N");
   add("DDG", data.DDG || "N");
 
-  // Подфайл DL
   const subfileType = "DL";
-  // Содержимое подфайла: элементы через LF, в конце CR
   const subfileBody = subfields.join(LF) + CR;
   const fullSubfile = subfileType + subfileBody;
 
   // Header (21 байт)
   const complianceIndicator = "@";
   const headerSeparators = LF + RS + CR;
-  const fileType = "ANSI "; // 5 байт
+  const fileType = "ANSI "; 
   const iin = (data.IIN || "636000").substring(0, 6).padEnd(6, '0');
-  const aamvaVersion = "10"; // Версия 2020 стандарта
+  const aamvaVersion = "10"; 
   const jurVersion = (data.JurisdictionVersion || "00").padStart(2, '0');
   const numEntries = "01";
 
   const header = complianceIndicator + headerSeparators + fileType + iin + aamvaVersion + jurVersion + numEntries;
 
   // Subfile Designator (10 байт)
-  const offsetValue = header.length + 10; // 21 + (1 * 10) = 31
+  const offsetValue = header.length + 10; 
   const lengthValue = fullSubfile.length;
 
   const designator = subfileType + 

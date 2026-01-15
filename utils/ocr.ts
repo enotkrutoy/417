@@ -11,7 +11,7 @@ export const preprocessImage = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const SCALE = 2500; // Увеличено разрешение для мелкого текста DD
+        const SCALE = 2500; 
         let w = img.width, h = img.height;
         if (w > SCALE || h > SCALE) {
           const r = Math.min(SCALE/w, SCALE/h);
@@ -19,7 +19,7 @@ export const preprocessImage = (file: File): Promise<string> => {
         }
         canvas.width = w; canvas.height = h;
         if (ctx) {
-          ctx.filter = 'contrast(1.2) brightness(1.0) sharp(1.0)';
+          ctx.filter = 'contrast(1.2) brightness(1.0) saturate(1.1)';
           ctx.drawImage(img, 0, 0, w, h);
         }
         resolve(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
@@ -38,22 +38,21 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-        { text: `Analyze the Driver's License image and extract data into AAMVA 2020 compliant tags.
+        { text: `Analyze Driver's License image. Extract into AAMVA tags:
+        - DCS: Last Name
+        - DAC: First Name
+        - DAD: Middle/Suffix
+        - DAQ: ID Number (EXACT)
+        - DBB: DOB (MMDDCCYY)
+        - DBA: Expiry (MMDDCCYY)
+        - DBD: Issue (MMDDCCYY)
+        - DCF: DOCUMENT DISCRIMINATOR / AUDIT NUMBER (Usually labeled 'DD', 'Audit', or long numeric string at bottom)
+        - DAU: Height in Ft-In format (e.g., 5-04)
+        - DBC: Sex (1=M, 2=F)
+        - DAY: Eye Color (3-letter: BRO, BLU, etc.)
+        - DAG, DAI, DAJ, DAK: Full Address
         
-        CRITICAL TAG RULES:
-        - DCS: LAST NAME only.
-        - DAC: FIRST NAME only.
-        - DAD: MIDDLE NAME or initial.
-        - DAQ: ID NUMBER exactly as shown (with hyphens if present).
-        - DBB: Date of Birth (MMDDCCYY).
-        - DBA: Expiry Date (MMDDCCYY).
-        - DBD: Issue Date (MMDDCCYY).
-        - DCF: DOCUMENT DISCRIMINATOR / AUDIT NUMBER. Usually marked as 'DD' or 'Audit'. This is a long alphanumeric string.
-        - DAU: Height (e.g., '5-08' or '5-11').
-        - DBC: Sex (1=Male, 2=Female).
-        - DAG, DAI, DAJ, DAK: Address components.
-        
-        If a field is not found, use "NONE". Return JSON.` }
+        Return JSON object.` }
       ]
     },
     config: {
@@ -75,11 +74,7 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
           DBC: { type: Type.STRING },
           DAY: { type: Type.STRING },
           DAU: { type: Type.STRING },
-          DCF: { type: Type.STRING },
-          DCA: { type: Type.STRING },
-          DCB: { type: Type.STRING },
-          DCD: { type: Type.STRING },
-          DDA: { type: Type.STRING }
+          DCF: { type: Type.STRING }
         }
       }
     }
@@ -88,17 +83,11 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
   try {
     const raw = JSON.parse(response.text || "{}");
     const cleaned: Record<string, string> = {};
-    
     Object.keys(raw).forEach(key => {
       let val = String(raw[key] || "").toUpperCase().trim();
       if (['DBA', 'DBB', 'DBD'].includes(key)) val = val.replace(/\D/g, '');
-      if (key === 'DBC') {
-        if (val.includes('M') || val === '1') val = '1';
-        else if (val.includes('F') || val === '2') val = '2';
-      }
       cleaned[key] = val;
     });
-
     return cleaned;
   } catch (e) {
     return {};
