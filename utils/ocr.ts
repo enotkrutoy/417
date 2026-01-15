@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { Jurisdiction } from '../types';
 import { JURISDICTIONS } from '../constants';
@@ -38,26 +37,29 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-        { text: `Extract Driver License/ID data using AAMVA 2020 tagging conventions. 
-        CRITICAL FIELD MAPPING:
-        - Element 1 (Family Name/Surname) -> DCS
-        - Element 2 (First Name) -> DAC
-        - Element 2 (Middle Name and Suffix like JR, SR, III) -> DAD. Combine middle names and suffixes here.
-        - Element 4d (License/DL Number) -> DAQ
-        - Element 3 (DOB) -> DBB (MMDDCCYY format)
-        - Element 4b (EXP) -> DBA (MMDDCCYY format)
-        - Element 4a (ISS) -> DBD (MMDDCCYY format)
-        - Element 5 (DD / Document Discriminator / Audit Number) -> DCF. This is a long string of digits.
-        - Element 15 (Sex) -> DBC (1=Male, 2=Female)
-        - Element 16 (Height) -> DAU (Use F-II format like 5-04 or 5-08)
-        - Element 18 (Eyes) -> DAY (3-letter color code like BRO, BLU, GRN)
-        - Element 8 (Address) -> DAG (Street), DAI (City), DAJ (State), DAK (Zip)
-        - Element 9 (Class) -> DCA
-        - Element 9a (Endorsements) -> DCD
-        - Element 12 (Restrictions) -> DCB
-        - If the text "NOT FOR FEDERAL IDENTIFICATION" is visible, set DDA to 'N'. Otherwise set DDA to 'F'.
+        { text: `Extract Driver License/ID data from this image (can be Front or Back). Use AAMVA 2020 tags.
         
-        Return the result strictly as a flat JSON object with these keys. If a value is "NONE" or missing, return it as "NONE".` }
+        CRITICAL MAPPING RULES:
+        - DCS: Family Name / Last Name
+        - DAC: First Name
+        - DAD: Middle Names AND Suffixes (like JR, SR, III) - combine them here.
+        - DAQ: License Number / ID Number
+        - DBB: Date of Birth (Format: MMDDCCYY)
+        - DBA: Expiration Date (Format: MMDDCCYY)
+        - DBD: Issue Date (Format: MMDDCCYY)
+        - DCF: Document Discriminator / Audit Number / DD number (Look for long string of digits, usually on bottom right or near barcode)
+        - DCA: Class (e.g., A, B, C, D, M)
+        - DCB: Restrictions (e.g., NONE, or codes like A, B, E/64)
+        - DCD: Endorsements (e.g., NONE, or codes like P, X)
+        - DAG, DAI, DAJ, DAK: Address components (Street, City, State, Zip)
+        - DBC: Sex (1 for Male, 2 for Female)
+        - DAU: Height (Use feet-inches format like 5-08 if seen)
+        
+        COMPLIANCE LOGIC (DDA):
+        - If you see "NOT FOR FEDERAL IDENTIFICATION", "NON-COMPLIANT", or disclaimer text like "does not establish eligibility for employment/voting", set DDA to 'N'.
+        - Otherwise, set DDA to 'F'.
+        
+        Return the result as a flat JSON object with these keys. If a field is not found or is "NONE", use "NONE".` }
       ]
     },
     config: {
@@ -80,10 +82,9 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
           DAY: { type: Type.STRING },
           DAU: { type: Type.STRING },
           DCF: { type: Type.STRING },
-          DCG: { type: Type.STRING },
           DCA: { type: Type.STRING },
-          DCD: { type: Type.STRING },
           DCB: { type: Type.STRING },
+          DCD: { type: Type.STRING },
           DDA: { type: Type.STRING }
         }
       }
@@ -97,15 +98,15 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
     Object.keys(raw).forEach(key => {
       let val = String(raw[key] || "").toUpperCase().trim();
       
-      // Sex normalization
+      // Normalize dates to MMDDCCYY if they contain slashes
+      if (['DBA', 'DBB', 'DBD'].includes(key)) {
+        val = val.replace(/\D/g, '');
+      }
+      
+      // Normalize sex
       if (key === 'DBC') {
         if (val.includes('M') || val === '1') val = '1';
         else if (val.includes('F') || val === '2') val = '2';
-      }
-      
-      // Date normalization to MMDDCCYY
-      if (['DBA', 'DBB', 'DBD'].includes(key)) {
-        val = val.replace(/\D/g, '');
       }
       
       cleaned[key] = val;
@@ -113,7 +114,7 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
 
     return cleaned;
   } catch (e) {
-    console.error("OCR Parsing Error:", e);
+    console.error("OCR Parse Error:", e);
     return {};
   }
 };
