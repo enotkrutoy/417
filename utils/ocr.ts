@@ -94,15 +94,21 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
           }
         },
         {
-          text: `Analyze this US/Canada Driver's License image. Extract the data into the specified JSON structure.
-                 Rules:
-                 1. Dates: Format STRICTLY as MMDDYYYY (e.g. 09141976).
-                 2. Sex: Return '1' for Male, '2' for Female.
-                 3. Height: Convert to total inches, 3 digits, followed by ' in'. Example: 5'02" -> '062 in'. 
-                 4. State: Use 2-letter abbreviation (e.g. TX, CA).
-                 5. Eye/Hair: Use 3-letter standard codes (BRO, BLU, BLK, etc.).
-                 6. If a field is not visible, use empty string.
-                 7. Restrictions/Endorsements: Use 'NONE' if not found.`
+          text: `You are an expert OCR system for AAMVA Compliant Driver's Licenses. Extract data strictly adhering to the PDF417 raw data standards.
+                 
+                 CRITICAL FORMATTING RULES (FAILURE TO FOLLOW BREAKS THE BARCODE):
+                 1. DATES: MUST be MMDDYYYY (USA) or CCYYMMDD (Canada). NO separators (/, -, .). Example: '09141976'.
+                 2. SEX: Return '1' for Male, '2' for Female. Do NOT return 'M' or 'F'.
+                 3. HEIGHT:
+                    - USA: Convert to inches. Format: 3 digits followed by ' in'. Example: 5'09" -> '069 in'.
+                    - Canada: Centimeters. Format: 3 digits followed by ' cm'. Example: '175 cm'.
+                 4. EYES/HAIR: Use ANSI D-20 3-letter codes (BRO, BLU, GRN, BLK, GRY, HAZ).
+                 5. STATE: 2-letter uppercase code (e.g. TX, CA, FL).
+                 6. ZIP: Use 5 digits or 9 digits (no hyphen) if possible, but keep hyphen if visible.
+                 7. RESTRICTIONS/ENDORSEMENTS: If none visible, return "NONE".
+                 8. CLASS: Usually 1 character (C, D, A).
+                 
+                 If a field is partially obscured, infer from context or leave empty string.`
         }
       ]
     },
@@ -111,27 +117,27 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          DCS: { type: Type.STRING, description: "Last Name / Surname" },
+          DCS: { type: Type.STRING, description: "Family Name" },
           DAC: { type: Type.STRING, description: "First Name" },
-          DAD: { type: Type.STRING, description: "Middle Name (or empty)" },
+          DAD: { type: Type.STRING, description: "Middle Name" },
           DAQ: { type: Type.STRING, description: "License Number" },
-          DBB: { type: Type.STRING, description: "Date of Birth (MMDDYYYY)" },
-          DBA: { type: Type.STRING, description: "Expiration Date (MMDDYYYY)" },
+          DBB: { type: Type.STRING, description: "DOB (MMDDYYYY)" },
+          DBA: { type: Type.STRING, description: "Expiration (MMDDYYYY)" },
           DBD: { type: Type.STRING, description: "Issue Date (MMDDYYYY)" },
           DAG: { type: Type.STRING, description: "Street Address" },
           DAI: { type: Type.STRING, description: "City" },
-          DAJ: { type: Type.STRING, description: "State Code (2 letters)" },
-          DAK: { type: Type.STRING, description: "Zip Code (5 or 9 digits only)" },
-          DBC: { type: Type.STRING, description: "Sex (1 or 2)" },
-          DAU: { type: Type.STRING, description: "Height (e.g., '062 in')" },
-          DAW: { type: Type.STRING, description: "Weight (lbs)" },
-          DAY: { type: Type.STRING, description: "Eye Color (3 letters)" },
-          DAZ: { type: Type.STRING, description: "Hair Color (3 letters)" },
+          DAJ: { type: Type.STRING, description: "State (2 char)" },
+          DAK: { type: Type.STRING, description: "Zip Code" },
+          DBC: { type: Type.STRING, description: "Sex (1=M, 2=F)" },
+          DAU: { type: Type.STRING, description: "Height (e.g. 069 in)" },
+          DAW: { type: Type.STRING, description: "Weight (lbs/kg)" },
+          DAY: { type: Type.STRING, description: "Eye Color (3 chars)" },
+          DAZ: { type: Type.STRING, description: "Hair Color (3 chars)" },
           DCA: { type: Type.STRING, description: "Class" },
           DCB: { type: Type.STRING, description: "Restrictions" },
           DCD: { type: Type.STRING, description: "Endorsements" },
-          DCF: { type: Type.STRING, description: "Document Discriminator" },
-          DCG: { type: Type.STRING, description: "Country (USA or CAN)" }
+          DCF: { type: Type.STRING, description: "Doc Discriminator" },
+          DCG: { type: Type.STRING, description: "Country (USA/CAN)" }
         },
         required: ["DCS", "DAC", "DAQ", "DBB", "DBA", "DAJ"]
       }

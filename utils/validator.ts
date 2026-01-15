@@ -34,24 +34,26 @@ const ELEMENT_MAP: Record<string, { desc: string, formKey: keyof DLFormData, reg
 const parseAAMVARaw = (raw: string): Record<string, string> => {
   const result: Record<string, string> = {};
   
-  // 1. Basic Header Check
+  // Basic Header Check
   if (!raw.startsWith('@')) return result;
 
-  // 2. Find the Subfile Block
-  const cleanRaw = raw.replace(/\r/g, '\n'); 
-  const lines = cleanRaw.split('\n');
+  // Normalize line endings for easier splitting, but be careful not to break data that might contain newlines (unlikely in DL)
+  // The standard uses 0x0A (LF) as Element Separator.
+  const lines = raw.split('\n');
 
   lines.forEach(line => {
     line = line.trim();
     
     // Fix: Handle Subfile Type merged with first element (e.g. "DLDDAF")
+    // This happens because the "DL" subfile designator is followed immediately by the first element ID without a separator in some versions,
+    // OR it sits at the start of the data block.
+    // In our generator, we put "DL" at the start of the subfile data.
     if (/^(DL|ID|EN)[A-Z]{3}/.test(line)) {
       line = line.substring(2);
     }
 
-    if (line.length < 3) return;
-
     // AAMVA Elements are 3 uppercase letters followed by data
+    // We strictly look for 3 uppercase letters at the start
     const match = line.match(/^([A-Z]{3})(.*)$/);
     if (match) {
       const key = match[1];
@@ -70,8 +72,15 @@ export const validateBarcode = (rawString: string, currentFormData: DLFormData):
   const scannedData = parseAAMVARaw(rawString);
   const fields: ValidationField[] = [];
   
-  // Check signature
-  const isValidSignature = rawString.startsWith('@') && rawString.includes('ANSI');
+  // Check signature & Header Structure
+  // Must start with '@', then LF (\n), then RS (\x1e), then CR (\r), then "ANSI "
+  const hasCompliance = rawString.startsWith('@');
+  const hasANSI = rawString.includes('ANSI');
+  
+  // Check specifically for the AAMVA control characters which ensure binary integrity
+  const hasSeparators = rawString.includes('\n') && rawString.includes('\r');
+
+  const isValidSignature = hasCompliance && hasANSI && hasSeparators;
 
   Object.entries(ELEMENT_MAP).forEach(([elId, config]) => {
     // Check if the key exists in the scanned data object at all
@@ -93,7 +102,7 @@ export const validateBarcode = (rawString: string, currentFormData: DLFormData):
       return;
     }
 
-    // Key exists, but value might be empty (which is valid for some fields like Weight in NC)
+    // Key exists, but value might be empty
     if (scannedVal === "") {
         const isFormEmpty = !formVal || formVal.trim() === "";
         fields.push({
