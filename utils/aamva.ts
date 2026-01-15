@@ -1,17 +1,17 @@
 import { DLFormData } from '../types';
 
 /**
- * AAMVA 2020 Standard Constants & Helpers
+ * AAMVA 2020 (Version 08) Standard Constants & Helpers
+ * Based on DL/ID Card Design Standard
  */
 const COMPLIANCE_INDICATOR = "@"; // 0x40
 const DATA_ELEMENT_SEPARATOR = "\n"; // 0x0A (LF)
 const RECORD_SEPARATOR = "\x1e"; // 0x1E (RS)
 const SEGMENT_TERMINATOR = "\r"; // 0x0D (CR)
 const FILE_TYPE = "ANSI ";
-const IIN_DEFAULT = "636000"; 
 
-// Helper to ensure strict ASCII (remove special quotes, accents, etc which break PDF417)
-const toAscii = (str: string) => str.replace(/[^\x00-\x7F]/g, "").trim();
+// Helper to ensure strict ASCII and remove control characters
+const toAscii = (str: string) => str.replace(/[^\x20-\x7E]/g, "").trim();
 
 /**
  * Formats a field: trims, truncates, checks mandatory status.
@@ -26,109 +26,132 @@ const formatField = (value: string, maxLength: number, isMandatory: boolean = fa
 };
 
 /**
+ * Formats date to MMDDYYYY (USA Standard)
+ * Input can be various formats, output must be strict 8 digits.
+ */
+const formatDate = (val: string): string => {
+  if (!val) return "";
+  const digits = val.replace(/\D/g, '');
+  // Assuming input is relatively sane; strict validation happens in validator
+  return digits.substring(0, 8);
+};
+
+/**
  * Generates the raw AAMVA compliant string.
- * MATH EXPLANATION:
- * - Header = 21 bytes
- * - Subfile Designator = 10 bytes per subfile.
- * - Offset = Points to the start of the "DL" tag in the data block.
- * - Length = Length of the Data Block (from "DL" to the final CR). It DOES NOT include the 10-byte Designator.
  */
 export const generateAAMVAString = (data: DLFormData): string => {
   
-  // --- 1. Build the DL Subfile Data Block ---
   const fields: string[] = [];
 
-  // Mandatory Header Elements inside Subfile
-  fields.push(`DDA${formatField(data.DDA, 1, true)}`); // Compliance
+  // --- Helper to add field safely ---
+  const add = (tag: string, val: string) => {
+     if (val !== "") {
+         fields.push(`${tag}${val}`);
+     }
+  };
+
+  // --- 1. Pre-calculate Truncation Flags ---
+  // AAMVA requires we explicitly state if names were truncated.
+  // Values: N = Not truncated, T = Truncated, U = Unknown
   
-  // Ensure DEB/DBB/DBA/DBD are purely numeric 8 digits
-  const cleanDate = (d: string) => d ? d.replace(/\D/g, '').slice(0, 8) : "";
+  const rawLast = toAscii(data.DCS || "");
+  const rawFirst = toAscii(data.DAC || "");
+  const rawMiddle = toAscii(data.DAD || "");
+
+  const truncLast = rawLast.length > 40 ? 'T' : 'N';
+  const truncFirst = rawFirst.length > 40 ? 'T' : 'N';
+  const truncMiddle = rawMiddle.length > 40 ? 'T' : 'N';
+
+  // --- 2. Build the DL Subfile Data Block ---
+  // Order roughly follows AAMVA best practices (Mandatory first, then Optional)
+  // Note: Parsers use tags, so order is technically flexible, but standard order reduces friction.
+
+  // Mandatory Header Elements inside Subfile (Ver 08)
+  add("DDA", formatField(data.DDA, 1, true)); // Compliance Type (F/N)
+  add("DCS", formatField(data.DCS, 40, true)); // Last Name
+  add("DAC", formatField(data.DAC, 40, true)); // First Name
+  add("DAD", formatField(data.DAD, 40));       // Middle Name
+  add("DBD", formatDate(data.DBD));            // Issue Date
+  add("DBB", formatDate(data.DBB));            // DOB
+  add("DBA", formatDate(data.DBA));            // Exp Date
+  add("DBC", formatField(data.DBC, 1, true));  // Sex
+  add("DAU", formatField(data.DAU, 6, true));  // Height
+  add("DAY", formatField(data.DAY, 3, true));  // Eye Color
+  add("DAZ", formatField(data.DAZ, 3));        // Hair Color
   
-  fields.push(`DEB${cleanDate(data.DEB)}`); // File Create Date
-  fields.push(`DAQ${formatField(data.DAQ, 25, true)}`); // License #
-  fields.push(`DCS${formatField(data.DCS, 40, true)}`); // Last Name
-  fields.push(`DAC${formatField(data.DAC, 40, true)}`); // First Name
-  fields.push(`DAD${formatField(data.DAD, 40)}`);       // Middle Name
-  fields.push(`DCA${formatField(data.DCA, 6, true)}`);   // Class
-  fields.push(`DCB${formatField(data.DCB || "NONE", 12, true)}`); // Restrictions
-  fields.push(`DCD${formatField(data.DCD || "NONE", 5, true)}`);  // Endorsements
-  fields.push(`DBA${cleanDate(data.DBA)}`); // Exp Date
-  fields.push(`DBB${cleanDate(data.DBB)}`); // DOB
-  fields.push(`DBD${cleanDate(data.DBD)}`); // Issue Date
-  fields.push(`DBC${formatField(data.DBC, 1, true)}`);   // Sex
-  fields.push(`DAY${formatField(data.DAY, 3, true)}`);   // Eyes
+  add("DAG", formatField(data.DAG, 35, true)); // Street
+  add("DAI", formatField(data.DAI, 20, true)); // City
+  add("DAJ", formatField(data.DAJ, 2, true));  // State
+  add("DAK", formatField(data.DAK, 11, true)); // Zip
   
-  // Height: Ensure format "069 in" or "175 cm"
-  let height = data.DAU;
-  // If user enters raw number "069", append " in". If "508", assuming it needs formatting handled by OCR or user.
-  if (height && !height.includes(' ')) {
-      height = height + " in"; 
+  add("DAQ", formatField(data.DAQ, 25, true)); // License #
+  add("DCF", formatField(data.DCF, 25, true)); // Doc Discriminator (Mandatory in 08)
+  add("DCG", formatField(data.DCG, 3, true));  // Country
+
+  // Class / Restrictions / Endorsements
+  add("DCA", formatField(data.DCA, 6, true));
+  add("DCB", formatField(data.DCB || "NONE", 12, true));
+  add("DCD", formatField(data.DCD || "NONE", 5, true));
+
+  // Weight (Optional in some, Mandatory in others, we treat as standard)
+  add("DAW", formatField(data.DAW, 3)); 
+
+  // Truncation Flags (Mandatory)
+  add("DDEN", truncLast); 
+  add("DDFN", truncFirst); 
+  add("DDGN", truncMiddle); 
+
+  // File Creation Date (Mandatory)
+  add("DEB", formatDate(data.DEB));
+
+  // --- 3. Construct Data Block String ---
+  // Rules:
+  // 1. Starts with "DL" (Subfile Type)
+  // 2. Fields separated by LF
+  // 3. Last field followed by LF then CR (Segment Terminator)
+  
+  let subfileData = "DL";
+  if (fields.length > 0) {
+      subfileData += fields.join(DATA_ELEMENT_SEPARATOR) + DATA_ELEMENT_SEPARATOR;
   }
-  fields.push(`DAU${formatField(height, 6, true)}`);
-  fields.push(`DAW${formatField(data.DAW, 3, true)}`);   // Weight
-  fields.push(`DAG${formatField(data.DAG, 35, true)}`);  // Street
-  fields.push(`DAI${formatField(data.DAI, 20, true)}`);  // City
-  fields.push(`DAJ${formatField(data.DAJ, 2, true)}`);   // State
-  fields.push(`DAK${formatField(data.DAK, 11, true)}`);  // Zip
-  fields.push(`DCF${formatField(data.DCF, 25, true)}`);  // Discriminator
-  fields.push(`DCG${formatField(data.DCG, 3, true)}`);   // Country
-  
-  if (data.DAZ) fields.push(`DAZ${formatField(data.DAZ, 12)}`); // Hair
+  subfileData += SEGMENT_TERMINATOR;
 
-  // Truncation flags (Mandatory)
-  fields.push(`DDEN`); 
-  fields.push(`DDFN`); 
-  fields.push(`DDGN`); 
-
-  // Join fields with LF. 
-  // CRITICAL: The Data Block MUST begin with the Subfile Type ("DL").
-  let subfileData = "DL" + fields.join(DATA_ELEMENT_SEPARATOR);
+  // --- 4. Calculate Offsets & Lengths ---
   
-  // Append Subfile Terminator (LF) before the Segment Terminator (CR)
-  // Standard allows [Field][LF][CR]
-  subfileData += DATA_ELEMENT_SEPARATOR + SEGMENT_TERMINATOR;
-
-  // --- 2. Calculate Offsets & Lengths ---
-  
-  // We are generating 1 Subfile ("DL").
   const numEntries = 1; 
-  
   const headerSize = 21;
   const designatorSize = 10;
   
-  // Offset is where the actual DATA begins.
-  // It skips the Header (21) and ALL Subfile Designators (10 * numEntries).
+  // Offset points to the 'DL' tag.
   const offsetToDLData = headerSize + (designatorSize * numEntries);
   
-  // Total Length of the subfile = The length of the data block string we just built.
-  // CRITICAL FIX: Do NOT add designatorSize here. The Length field describes the "value", not the "key + value".
+  // Length is the length of the subfileData string (including the trailing CR)
   const lengthOfDLSubfile = subfileData.length;
 
-  // Format to 4-digit zero-padded strings
   const offsetStr = offsetToDLData.toString().padStart(4, '0');
   const lengthStr = lengthOfDLSubfile.toString().padStart(4, '0');
 
-  // --- 3. Construct the Raw String ---
+  // --- 5. Construct Final Raw String ---
   
   let raw = "";
   
-  // 3a. File Header
-  raw += COMPLIANCE_INDICATOR; // @ (byte 0)
-  raw += DATA_ELEMENT_SEPARATOR; // \n (byte 1)
-  raw += RECORD_SEPARATOR;       // \x1e (byte 2)
-  raw += SEGMENT_TERMINATOR;     // \r (byte 3)
-  raw += FILE_TYPE;              // "ANSI " (bytes 4-8)
-  raw += (data.IIN || IIN_DEFAULT).padEnd(6, '0'); // IIN (bytes 9-14)
-  raw += (data.Version || "08").padStart(2, '0');  // Version (bytes 15-16)
-  raw += "00";                   // Jur Version (bytes 17-18)
-  raw += numEntries.toString().padStart(2, '0'); // Entries (bytes 19-20) -> "01"
+  // 5a. File Header (21 bytes)
+  raw += COMPLIANCE_INDICATOR; // @
+  raw += DATA_ELEMENT_SEPARATOR; // \n
+  raw += RECORD_SEPARATOR;       // \x1e
+  raw += SEGMENT_TERMINATOR;     // \r
+  raw += FILE_TYPE;              // "ANSI "
+  raw += (data.IIN || "636000").padEnd(6, '0'); // Issuer ID
+  raw += (data.Version || "08").padStart(2, '0'); // AAMVA Version
+  raw += "00";                   // Jurisdiction Version (00 usually)
+  raw += "01";                   // Number of Entries (01)
 
-  // 3b. Subfile Designator (DL)
+  // 5b. Subfile Designator (10 bytes)
   raw += "DL";                   // Type
-  raw += offsetStr;              // Offset to data
-  raw += lengthStr;              // Length of this subfile
+  raw += offsetStr;              // Offset
+  raw += lengthStr;              // Length
 
-  // 3c. Subfile Data (Includes "DL" prefix + fields + LF + CR)
+  // 5c. Subfile Data
   raw += subfileData;
   
   return raw;
