@@ -1,10 +1,15 @@
 
 import { DLFormData } from '../types';
 
+/**
+ * AAMVA 2020 DL/ID Card Design Standard
+ * Section D.12.3: Header Format (21 bytes fixed)
+ * Section D.12.4: Subfile Designator (10 bytes fixed)
+ */
+
 const LF = "\n"; // 0x0A
 const RS = "\x1e"; // 0x1E
 const CR = "\r"; // 0x0D
-const HEADER_LEAD = "@" + LF + RS + CR + "ANSI "; // 9 bytes
 
 const sanitize = (s: string) => (s || "").toUpperCase().replace(/[^\x20-\x7E]/g, "").trim();
 
@@ -16,50 +21,57 @@ export const generateAAMVAString = (data: DLFormData): string => {
     if (cleanVal) subfields.push(`${tag}${cleanVal}`);
   };
 
-  // Строгое следование порядку элементов AAMVA 2020 для максимальной совместимости
+  // 1. Mandatory Elements (Order as per AAMVA Standard Recommended Sequence)
   add("DCA", data.DCA || "C");
   add("DCB", data.DCB || "NONE");
   add("DCD", data.DCD || "NONE");
-  add("DBA", data.DBA);
-  add("DCS", data.DCS);
-  add("DAC", data.DAC);
-  add("DAD", data.DAD);
-  add("DBD", data.DBD);
-  add("DBB", data.DBB);
-  add("DBC", data.DBC);
-  add("DAY", data.DAY);
-  add("DAU", data.DAU);
-  add("DAG", data.DAG);
-  add("DAI", data.DAI);
-  add("DAJ", data.DAJ);
-  add("DAK", data.DAK);
-  add("DAQ", data.DAQ);
-  add("DCF", data.DCF);
-  add("DCG", data.DCG);
-  add("DDA", data.DDA);
-  
-  // Рассчитываем truncation флаги динамически
+  add("DBA", data.DBA); // Expiry
+  add("DCS", data.DCS); // Family Name
+  add("DAC", data.DAC); // Given Name
+  add("DAD", data.DAD); // Middle Name
+  add("DBD", data.DBD); // Issue Date
+  add("DBB", data.DBB); // DOB
+  add("DBC", data.DBC); // Sex
+  add("DAY", data.DAY); // Eyes
+  add("DAU", data.DAU); // Height
+  add("DAG", data.DAG); // Address
+  add("DAI", data.DAI); // City
+  add("DAJ", data.DAJ); // State
+  add("DAK", data.DAK); // Zip
+  add("DAQ", data.DAQ); // ID Number
+  add("DCF", data.DCF); // Document Discriminator
+  add("DCG", data.DCG); // Country
+  add("DDA", data.DDA); // Compliance
+
+  // 2. Truncation Indicators (DDE, DDF, DDG)
   add("DDE", data.DCS.length > 40 ? "T" : "N");
   add("DDF", data.DAC.length > 40 ? "T" : "N");
-  add("DDG", data.DAD.length > 40 ? "T" : "N");
+  add("DDG", (data.DAD || "").length > 40 ? "T" : "N");
 
-  // Тело подфайла: "DL" + поля + разделитель записей + терминатор
-  const subfileContent = "DL" + subfields.join(LF) + LF + CR;
-  
-  // Расчет заголовка
+  // Subfile Content construction
+  // Start with "DL" then all fields joined by LF, ending with LF and Segment Terminator CR
+  const subfileBody = subfields.join(LF) + LF + CR;
+  const subfileType = "DL";
+  const fullSubfile = subfileType + subfileBody;
+
+  // 3. Header Construction (21 bytes)
+  const compliance = "@";
+  const separators = LF + RS + CR;
+  const fileType = "ANSI "; // 5 bytes
   const iin = (data.IIN || "636000").substring(0, 6).padEnd(6, '0');
-  const ver = (data.Version || "10").padStart(2, '0');
-  const jurVer = (data.JurisdictionVersion || "00").padStart(2, '0');
-  const entries = "01";
+  const aamvaVersion = (data.Version || "10").padStart(2, '0');
+  const jurisdictionVersion = (data.JurisdictionVersion || "00").padStart(2, '0');
+  const numberOfEntries = "01";
 
-  // Заголовок фиксированной длины (21 байт)
-  const headerMeta = `${iin}${ver}${jurVer}${entries}`;
-  
-  // Смещение = 21 (заголовок) + 10 (один дескриптор подфайла)
-  const offset = 21 + 10;
-  const length = subfileContent.length;
+  // Subfile Designator (10 bytes)
+  // Offset = Header (21) + All Designators (10 * numEntries)
+  const offsetValue = 21 + (10 * parseInt(numberOfEntries));
+  const lengthValue = fullSubfile.length;
 
-  const designator = "DL" + offset.toString().padStart(4, '0') + length.toString().padStart(4, '0');
+  const designator = subfileType + 
+                     offsetValue.toString().padStart(4, '0') + 
+                     lengthValue.toString().padStart(4, '0');
 
-  return HEADER_LEAD + headerMeta + designator + subfileContent;
+  // Combine everything
+  return compliance + separators + fileType + iin + aamvaVersion + jurisdictionVersion + numberOfEntries + designator + fullSubfile;
 };

@@ -1,57 +1,90 @@
 
 import { DLFormData, ValidationField, ValidationReport, ValidationStatus } from '../types';
 
-const ELEMENT_DESCS: Record<string, string> = {
-  'DAQ': 'ID Number', 'DBA': 'Expiry', 'DCS': 'Last Name', 'DAC': 'First Name',
-  'DBB': 'DOB', 'DBD': 'Issue Date', 'DAJ': 'State', 'DAU': 'Height',
-  'DCF': 'Audit/DD', 'DCA': 'Class', 'DCB': 'Restrictions', 'DCD': 'Endorsements'
+const MANDATORY_TAGS: Record<string, string> = {
+  'DAQ': 'ID Number',
+  'DCS': 'Family Name',
+  'DAC': 'Given Name',
+  'DBB': 'Date of Birth',
+  'DBA': 'Expiry Date',
+  'DBD': 'Issue Date',
+  'DAJ': 'State/Province',
+  'DCG': 'Country',
+  'DCF': 'Document Discriminator'
 };
 
 export const parseAAMVARaw = (raw: string): { data: Record<string, string>; error?: string } => {
   const result: Record<string, string> = {};
-  if (!raw.startsWith('@')) return { data: {}, error: "Invalid Compliance Indicator" };
+  
+  if (!raw.startsWith('@')) return { data: {}, error: "Invalid Compliance Indicator (expected @)" };
 
   try {
-    // Согласно стандарту 2020, дескриптор подфайла DL начинается с 21-го байта
-    const offset = parseInt(raw.substring(23, 27), 10);
-    const subfile = raw.substring(offset);
+    // 1. Read Header Metadata
+    // Bytes 5-9: ANSI (Check)
+    const fileType = raw.substring(4, 9);
+    if (fileType !== "ANSI ") return { data: {}, error: "Unsupported File Type (expected ANSI )" };
 
-    if (!subfile.startsWith('DL')) return { data: {}, error: "DL Segment not found at offset" };
+    // 2. Read Subfile Designator for DL
+    // Each subfile designator is 10 bytes starting from byte 21
+    const numEntries = parseInt(raw.substring(19, 21), 10);
+    
+    for (let i = 0; i < numEntries; i++) {
+      const designatorStart = 21 + (i * 10);
+      const type = raw.substring(designatorStart, designatorStart + 2);
+      const offset = parseInt(raw.substring(designatorStart + 2, designatorStart + 6), 10);
+      const length = parseInt(raw.substring(designatorStart + 6, designatorStart + 10), 10);
 
-    const elements = subfile.substring(2).split(/[\n\r]/);
-    elements.forEach(el => {
-      const tag = el.substring(0, 3);
-      const val = el.substring(3).trim();
-      if (tag.length === 3) result[tag] = val;
-    });
+      // Extract the subfile block
+      const subfileBlock = raw.substring(offset, offset + length);
+      // Skip the 2-char type header (e.g. "DL")
+      const content = subfileBlock.substring(2);
+      
+      // Split by LF (0x0A) or CR (0x0D)
+      const elements = content.split(/[\n\r]/);
+      
+      elements.forEach(el => {
+        if (el.length < 3) return;
+        const tag = el.substring(0, 3);
+        const val = el.substring(3).trim();
+        result[tag] = val;
+      });
+    }
+
     return { data: result };
   } catch (e) {
-    return { data: {}, error: "Byte structure corrupted" };
+    return { data: {}, error: "Structure parsing failed (corrupted format)" };
   }
 };
 
 export const validateBarcode = (scannedRaw: string, formData: DLFormData): ValidationReport => {
   const { data: scannedMap, error } = parseAAMVARaw(scannedRaw);
   const fields: ValidationField[] = [];
-  let scoreCount = 0;
+  let scorePoints = 0;
 
-  Object.entries(ELEMENT_DESCS).forEach(([tag, desc]) => {
+  Object.entries(MANDATORY_TAGS).forEach(([tag, desc]) => {
     const formVal = (formData[tag] || "").toUpperCase().replace(/\s/g, '');
     const scanVal = (scannedMap[tag] || "").toUpperCase().replace(/\s/g, '');
 
     let status: ValidationStatus = 'MATCH';
+    
     if (!scannedMap[tag]) {
       status = 'MISSING_IN_SCAN';
     } else if (formVal !== scanVal) {
       status = 'MISMATCH';
     } else {
-      scoreCount++;
+      scorePoints++;
     }
 
-    fields.push({ elementId: tag, description: desc, formValue: formData[tag], scannedValue: scannedMap[tag] || "N/A", status });
+    fields.push({
+      elementId: tag,
+      description: desc,
+      formValue: formData[tag] || "N/A",
+      scannedValue: scannedMap[tag] || "N/A",
+      status
+    });
   });
 
-  const overallScore = Math.round((scoreCount / Object.keys(ELEMENT_DESCS).length) * 100);
+  const overallScore = Math.round((scorePoints / Object.keys(MANDATORY_TAGS).length) * 100);
 
   return {
     isHeaderValid: !error,
