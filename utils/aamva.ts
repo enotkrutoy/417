@@ -1,22 +1,24 @@
 import { DLFormData } from '../types';
 
 /**
- * AAMVA 2020 Standard Constants
+ * AAMVA 2020 Standard Constants & Helpers
  */
 const COMPLIANCE_INDICATOR = "@"; // 0x40
 const DATA_ELEMENT_SEPARATOR = "\n"; // 0x0A (LF)
 const RECORD_SEPARATOR = "\x1e"; // 0x1E (RS)
 const SEGMENT_TERMINATOR = "\r"; // 0x0D (CR)
 const FILE_TYPE = "ANSI ";
-const IIN_DEFAULT = "636000"; // AAMVA Issuer ID
+const IIN_DEFAULT = "636000"; 
+
+// Helper to ensure strict ASCII (remove special quotes, accents, etc which break PDF417)
+const toAscii = (str: string) => str.replace(/[^\x00-\x7F]/g, "").trim();
 
 /**
- * Truncates a string to a maximum length as per AAMVA rules.
- * This is crucial for hardware scanners that allocate fixed buffers.
+ * Formats a field: trims, truncates, checks mandatory status.
  */
 const formatField = (value: string, maxLength: number, isMandatory: boolean = false): string => {
   if (!value) return isMandatory ? "NONE" : "";
-  let cleanValue = value.trim();
+  const cleanValue = toAscii(value);
   if (cleanValue.length > maxLength) {
     return cleanValue.substring(0, maxLength);
   }
@@ -24,164 +26,112 @@ const formatField = (value: string, maxLength: number, isMandatory: boolean = fa
 };
 
 /**
- * Generates the raw AAMVA compliant string for PDF417 generation.
- * Achieves 10/10 compliance by calculating dynamic offsets and enforcing field limits.
+ * Generates the raw AAMVA compliant string.
+ * MATH EXPLANATION:
+ * - Header = 21 bytes
+ * - Subfile Designator = 10 bytes (Type 2 + Offset 4 + Length 4)
+ * - Offset to Data = Header + (NumEntries * 10)
+ * - Subfile Length = 10 (Designator) + Data.length + 1 (Terminator)
  */
 export const generateAAMVAString = (data: DLFormData): string => {
   
-  // 1. Prepare Data Elements (Subfile DL)
-  // Order is recommended by AAMVA Annex D, though mostly tag-based access is used.
-  // We explicitly handle mandatory fields and format them correctly.
-
+  // --- 1. Build the DL Subfile Data Block ---
   const fields: string[] = [];
 
-  // --- Mandatory Header Data within Subfile ---
-  // DDA: Compliance Type (F = Compliant, N = Non-Compliant) - Fixed 1 char
-  fields.push(`DDA${formatField(data.DDA, 1, true)}`);
+  // Mandatory Header Elements inside Subfile
+  fields.push(`DDA${formatField(data.DDA, 1, true)}`); // Compliance
   
-  // DEB: File Creation Date (MMDDYYYY) - Fixed 8 char
-  // Ensure strict numeric
-  const deb = data.DEB.replace(/\D/g, '').slice(0, 8);
-  fields.push(`DEB${deb}`);
-
-  // --- Personal Data ---
+  // Ensure DEB/DBB/DBA/DBD are purely numeric 8 digits
+  const cleanDate = (d: string) => d.replace(/\D/g, '').slice(0, 8);
   
-  // DAQ: License Number - Var max 25
-  fields.push(`DAQ${formatField(data.DAQ, 25, true)}`);
+  fields.push(`DEB${cleanDate(data.DEB)}`); // File Create Date
+  fields.push(`DAQ${formatField(data.DAQ, 25, true)}`); // License #
+  fields.push(`DCS${formatField(data.DCS, 40, true)}`); // Last Name
+  fields.push(`DAC${formatField(data.DAC, 40, true)}`); // First Name
+  fields.push(`DAD${formatField(data.DAD, 40)}`);       // Middle Name
+  fields.push(`DCA${formatField(data.DCA, 6, true)}`);   // Class
+  fields.push(`DCB${formatField(data.DCB || "NONE", 12, true)}`); // Restrictions
+  fields.push(`DCD${formatField(data.DCD || "NONE", 5, true)}`);  // Endorsements
+  fields.push(`DBA${cleanDate(data.DBA)}`); // Exp Date
+  fields.push(`DBB${cleanDate(data.DBB)}`); // DOB
+  fields.push(`DBD${cleanDate(data.DBD)}`); // Issue Date
+  fields.push(`DBC${formatField(data.DBC, 1, true)}`);   // Sex
+  fields.push(`DAY${formatField(data.DAY, 3, true)}`);   // Eyes
   
-  // DCS: Family Name - Var max 40
-  fields.push(`DCS${formatField(data.DCS, 40, true)}`);
-  
-  // DAC: First Name - Var max 40
-  fields.push(`DAC${formatField(data.DAC, 40, true)}`);
-  
-  // DAD: Middle Name - Var max 40
-  fields.push(`DAD${formatField(data.DAD, 40)}`); // Optional, but usually present
-  
-  // DCA: Class - Var max 6
-  fields.push(`DCA${formatField(data.DCA, 6, true)}`);
-  
-  // DCB: Restrictions - Var max 12. "NONE" if empty.
-  const restrictions = data.DCB && data.DCB.trim().length > 0 ? data.DCB : "NONE";
-  fields.push(`DCB${formatField(restrictions, 12, true)}`);
-  
-  // DCD: Endorsements - Var max 5. "NONE" if empty.
-  const endorsements = data.DCD && data.DCD.trim().length > 0 ? data.DCD : "NONE";
-  fields.push(`DCD${formatField(endorsements, 5, true)}`);
-  
-  // DBA: Expiration Date (MMDDYYYY) - Fixed 8
-  const dba = data.DBA.replace(/\D/g, '').slice(0, 8);
-  fields.push(`DBA${dba}`);
-  
-  // DBB: DOB (MMDDYYYY) - Fixed 8
-  const dbb = data.DBB.replace(/\D/g, '').slice(0, 8);
-  fields.push(`DBB${dbb}`);
-  
-  // DBD: Issue Date (MMDDYYYY) - Fixed 8
-  const dbd = data.DBD.replace(/\D/g, '').slice(0, 8);
-  fields.push(`DBD${dbd}`);
-  
-  // DBC: Sex (1=M, 2=F, X) - Fixed 1
-  fields.push(`DBC${formatField(data.DBC, 1, true)}`);
-  
-  // DAY: Eye Color (3 chars) - ANSI codes
-  fields.push(`DAY${formatField(data.DAY, 3, true)}`);
-  
-  // DAU: Height (6 chars). e.g., "069 in" or "175 cm"
-  // Logic: Verify units. If just numbers, assume inches if < 100, cm if > 100? 
-  // Better: adhere to input.
+  // Height: Ensure format "069 in" or "175 cm"
   let height = data.DAU;
   if (!height.includes(' ')) {
-      // Auto-fix format if user just typed numbers
-      if (height.length === 3) height = `${height} in`; // Default assumption
+      // Assuming user typed "069", append " in" default
+      height = height + " in"; 
   }
   fields.push(`DAU${formatField(height, 6, true)}`);
+  fields.push(`DAW${formatField(data.DAW, 3, true)}`);   // Weight
+  fields.push(`DAG${formatField(data.DAG, 35, true)}`);  // Street
+  fields.push(`DAI${formatField(data.DAI, 20, true)}`);  // City
+  fields.push(`DAJ${formatField(data.DAJ, 2, true)}`);   // State
+  fields.push(`DAK${formatField(data.DAK, 11, true)}`);  // Zip
+  fields.push(`DCF${formatField(data.DCF, 25, true)}`);  // Discriminator
+  fields.push(`DCG${formatField(data.DCG, 3, true)}`);   // Country
   
-  // DAW: Weight (3 chars). Lbs or Kg.
-  fields.push(`DAW${formatField(data.DAW, 3, true)}`);
-  
-  // DAG: Address Street - Var max 35
-  fields.push(`DAG${formatField(data.DAG, 35, true)}`);
-  
-  // DAI: City - Var max 20
-  fields.push(`DAI${formatField(data.DAI, 20, true)}`);
-  
-  // DAJ: State Code - Fixed 2
-  fields.push(`DAJ${formatField(data.DAJ, 2, true)}`);
-  
-  // DAK: Zip - Var max 11 (e.g. 12345-6789)
-  fields.push(`DAK${formatField(data.DAK, 11, true)}`);
-  
-  // DCF: Doc Discriminator - Var max 25
-  fields.push(`DCF${formatField(data.DCF, 25, true)}`);
-  
-  // DCG: Country - Fixed 3
-  fields.push(`DCG${formatField(data.DCG, 3, true)}`);
-  
-  // DAZ: Hair Color - Var max 12 (Optional but standard)
-  if (data.DAZ) {
-      fields.push(`DAZ${formatField(data.DAZ, 12)}`);
-  }
+  if (data.DAZ) fields.push(`DAZ${formatField(data.DAZ, 12)}`); // Hair
 
-  // --- Truncation Indicators (Mandatory in 2020) ---
-  // We assume no truncation for generated data (N), unless logic forces it.
-  fields.push(`DDEN`); // Family name truncation
-  fields.push(`DDFN`); // First name truncation
-  fields.push(`DDGN`); // Middle name truncation
+  // Truncation flags (Mandatory)
+  fields.push(`DDEN`); 
+  fields.push(`DDFN`); 
+  fields.push(`DDGN`); 
 
-  // 2. Assemble Subfile Data Block
-  // The subfile starts with "DL" (the type designator repeated inside the data)
-  // Followed by fields separated by LF
-  let subfileData = "DL" + fields.join(DATA_ELEMENT_SEPARATOR);
+  // Join fields with LF. 
+  // NOTE: The data block starts immediately with the first Tag (DDA). No "DL" prefix here.
+  let subfileData = fields.join(DATA_ELEMENT_SEPARATOR);
   
-  // Ensure the subfile data ends with a separator before the segment terminator of the block
+  // Append Subfile Terminator (LF) before the Segment Terminator
   subfileData += DATA_ELEMENT_SEPARATOR;
 
-  // 3. Calculate Header Metrics
-  // Header fixed length is 21 bytes.
-  // Subfile Designator is 10 bytes (Type 2 + Offset 4 + Length 4).
-  // Total Offset to first data byte = 21 + 10 = 31.
+  // --- 2. Calculate Offsets & Lengths ---
   
-  const headerLength = 21;
-  const designatorLength = 10;
-  const offset = headerLength + designatorLength;
+  // We are generating 1 Subfile ("DL").
+  // If we wanted to add "ZV" (Jurisdiction Specific), we would set numEntries=2 and repeat logic.
+  const numEntries = 1; 
   
-  // Length of subfile: Data + 1 byte for the final Segment Terminator (CR) that follows it
-  const length = subfileData.length + 1; // +1 for the CR at the very end
+  const headerSize = 21;
+  const designatorSize = 10;
+  
+  // Offset is where the actual DATA begins.
+  // It skips the Header (21) and ALL Subfile Designators (10 * numEntries).
+  const offsetToDLData = headerSize + (designatorSize * numEntries);
+  
+  // Total Length of the subfile = Designator (10) + Data + Segment Terminator (1)
+  const lengthOfDLSubfile = designatorSize + subfileData.length + 1; // +1 for the final CR
 
-  // Format Offset and Length as 4-digit zero-padded strings
-  const offsetStr = offset.toString().padStart(4, '0');
-  const lengthStr = length.toString().padStart(4, '0');
+  // Format to 4-digit zero-padded strings
+  const offsetStr = offsetToDLData.toString().padStart(4, '0');
+  const lengthStr = lengthOfDLSubfile.toString().padStart(4, '0');
 
-  // 4. Construct Final String
-  // Header
+  // --- 3. Construct the Raw String ---
+  
   let raw = "";
-  raw += COMPLIANCE_INDICATOR; // @
-  raw += DATA_ELEMENT_SEPARATOR; // \n
-  raw += RECORD_SEPARATOR;       // \x1e
-  raw += SEGMENT_TERMINATOR;     // \r
-  raw += FILE_TYPE;              // "ANSI "
-  raw += (data.IIN || IIN_DEFAULT).padEnd(6, '0'); // IIN
-  raw += (data.Version || "08").padStart(2, '0');  // AAMVA Version (08 is standard for 2016/2020)
-  raw += "00";                   // Jurisdiction Version (usually 00)
-  raw += "02";                   // Number of Entries (02 is safer than 01 for some readers expecting ZV)
-                                 // NOTE: If we only have 1 subfile, use "01". Let's stick to "01" for simplicity/robustness unless ZV is needed.
-                                 // Let's use 01 to match our data.
   
-  // Correction: If we only write DL subfile, Entries must be 01.
-  const entries = "01";
-  raw = raw.slice(0, -2) + entries; // Replace last 02 with 01
+  // 3a. File Header
+  raw += COMPLIANCE_INDICATOR; // @ (byte 0)
+  raw += DATA_ELEMENT_SEPARATOR; // \n (byte 1)
+  raw += RECORD_SEPARATOR;       // \x1e (byte 2)
+  raw += SEGMENT_TERMINATOR;     // \r (byte 3)
+  raw += FILE_TYPE;              // "ANSI " (bytes 4-8)
+  raw += (data.IIN || IIN_DEFAULT).padEnd(6, '0'); // IIN (bytes 9-14)
+  raw += (data.Version || "08").padStart(2, '0');  // Version (bytes 15-16)
+  raw += "00";                   // Jur Version (bytes 17-18)
+  raw += numEntries.toString().padStart(2, '0'); // Entries (bytes 19-20) -> "01"
 
-  // Subfile Designator 1 (DL)
-  raw += "DL";
-  raw += offsetStr;
-  raw += lengthStr;
+  // 3b. Subfile Designator (DL)
+  raw += "DL";                   // Type
+  raw += offsetStr;              // Offset to data
+  raw += lengthStr;              // Length of this subfile
 
-  // Subfile Data
+  // 3c. Subfile Data
   raw += subfileData;
   
-  // Final Segment Terminator
-  raw += SEGMENT_TERMINATOR;
+  // 3d. Final Segment Terminator
+  raw += SEGMENT_TERMINATOR;     // \r
 
   return raw;
 };
