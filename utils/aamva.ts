@@ -29,9 +29,9 @@ const formatField = (value: string, maxLength: number, isMandatory: boolean = fa
  * Generates the raw AAMVA compliant string.
  * MATH EXPLANATION:
  * - Header = 21 bytes
- * - Subfile Designator = 10 bytes (Type 2 + Offset 4 + Length 4)
- * - Offset to Data = Header + (NumEntries * 10)
- * - Subfile Length = 10 (Designator) + Data.length + 1 (Terminator)
+ * - Subfile Designator = 10 bytes per subfile.
+ * - Offset = Points to the start of the "DL" tag in the data block.
+ * - Length = Length of the Data Block (from "DL" to the final CR). It DOES NOT include the 10-byte Designator.
  */
 export const generateAAMVAString = (data: DLFormData): string => {
   
@@ -60,8 +60,8 @@ export const generateAAMVAString = (data: DLFormData): string => {
   
   // Height: Ensure format "069 in" or "175 cm"
   let height = data.DAU;
+  // If user enters raw number "069", append " in". If "508", assuming it needs formatting handled by OCR or user.
   if (height && !height.includes(' ')) {
-      // Assuming user typed "069", append " in" default
       height = height + " in"; 
   }
   fields.push(`DAU${formatField(height, 6, true)}`);
@@ -82,12 +82,11 @@ export const generateAAMVAString = (data: DLFormData): string => {
 
   // Join fields with LF. 
   // CRITICAL: The Data Block MUST begin with the Subfile Type ("DL").
-  // This is implicit in the standard examples (e.g. ...00410278DLDAQT...).
-  // Without this "DL" prefix in the data, hardware scanners will fail to identify the start of the block.
   let subfileData = "DL" + fields.join(DATA_ELEMENT_SEPARATOR);
   
-  // Append Subfile Terminator (LF) before the Segment Terminator
-  subfileData += DATA_ELEMENT_SEPARATOR;
+  // Append Subfile Terminator (LF) before the Segment Terminator (CR)
+  // Standard allows [Field][LF][CR]
+  subfileData += DATA_ELEMENT_SEPARATOR + SEGMENT_TERMINATOR;
 
   // --- 2. Calculate Offsets & Lengths ---
   
@@ -101,8 +100,9 @@ export const generateAAMVAString = (data: DLFormData): string => {
   // It skips the Header (21) and ALL Subfile Designators (10 * numEntries).
   const offsetToDLData = headerSize + (designatorSize * numEntries);
   
-  // Total Length of the subfile = Designator (10) + Data + Segment Terminator (1)
-  const lengthOfDLSubfile = designatorSize + subfileData.length + 1; // +1 for the final CR
+  // Total Length of the subfile = The length of the data block string we just built.
+  // CRITICAL FIX: Do NOT add designatorSize here. The Length field describes the "value", not the "key + value".
+  const lengthOfDLSubfile = subfileData.length;
 
   // Format to 4-digit zero-padded strings
   const offsetStr = offsetToDLData.toString().padStart(4, '0');
@@ -128,11 +128,8 @@ export const generateAAMVAString = (data: DLFormData): string => {
   raw += offsetStr;              // Offset to data
   raw += lengthStr;              // Length of this subfile
 
-  // 3c. Subfile Data (Includes "DL" prefix + fields + LF)
+  // 3c. Subfile Data (Includes "DL" prefix + fields + LF + CR)
   raw += subfileData;
   
-  // 3d. Final Segment Terminator
-  raw += SEGMENT_TERMINATOR;     // \r
-
   return raw;
 };

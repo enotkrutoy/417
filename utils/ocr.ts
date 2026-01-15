@@ -6,22 +6,72 @@ import { JURISDICTIONS } from '../constants';
 const EYE_COLORS: Record<string, string> = {
   "BROWN": "BRO", "BLUE": "BLU", "GREEN": "GRN", "HAZEL": "HAZ",
   "BLACK": "BLK", "GRAY": "GRY", "GREY": "GRY", "MAROON": "MAR",
-  "PINK": "PNK", "DICHROMATIC": "DIC"
+  "PINK": "PNK", "DICHROMATIC": "DIC", "UNKNOWN": "UNK"
 };
 
 const HAIR_COLORS: Record<string, string> = {
   "BROWN": "BRO", "BLOND": "BLN", "BLONDE": "BLN", "BLACK": "BLK",
   "RED": "RED", "WHITE": "WHI", "GRAY": "GRY", "GREY": "GRY",
-  "BALD": "BAL", "SANDY": "SDY", "AUBURN": "RED" // Auburn maps to Red usually
+  "BALD": "BAL", "SANDY": "SDY", "AUBURN": "RED", "UNKNOWN": "UNK"
 };
 
 const normalizeCode = (val: string, map: Record<string, string>): string => {
   if (!val) return "";
   const upper = val.toUpperCase().trim();
   if (map[upper]) return map[upper];
-  // If it's already a valid 3-letter code, return it
-  if (Object.values(map).includes(upper)) return upper;
-  return upper.substring(0, 3); // Fallback
+  const validCodes = Object.values(map);
+  if (validCodes.includes(upper)) return upper;
+  for (const key in map) {
+      if (upper.includes(key)) return map[key];
+  }
+  return upper.substring(0, 3);
+};
+
+// Convert "5-08", "5'08", "5 ft 8 in" to "068 in"
+const normalizeHeight = (val: string): string => {
+    if (!val) return "";
+    
+    // Check if already in inches format (e.g. "068 in")
+    if (/^\d{3} in$/.test(val)) return val;
+    
+    // Extract numbers
+    const numbers = val.match(/\d+/g);
+    if (!numbers) return val;
+
+    // If single number > 20, assume cm, e.g. 175
+    if (numbers.length === 1 && parseInt(numbers[0]) > 25) {
+        return val + " cm"; // Canada uses CM
+    }
+
+    // Assume Feet/Inches
+    let inches = 0;
+    if (numbers.length >= 1) {
+        inches += parseInt(numbers[0]) * 12; // Feet
+    }
+    if (numbers.length >= 2) {
+        inches += parseInt(numbers[1]); // Inches
+    }
+    
+    return inches.toString().padStart(3, '0') + " in";
+};
+
+// Convert ISO YYYY-MM-DD or various formats to MMDDYYYY
+const normalizeDate = (val: string): string => {
+    if (!val) return "";
+    const clean = val.replace(/\D/g, '');
+    
+    // If already 8 digits, heuristics to check format
+    if (clean.length === 8) {
+        const yearStart = parseInt(clean.substring(0, 4));
+        // If starts with valid year (e.g. 1990...), it's YYYYMMDD -> convert to MMDDYYYY
+        if (yearStart > 1900 && yearStart < 2100) {
+            const yyyy = clean.substring(0, 4);
+            const mm = clean.substring(4, 6);
+            const dd = clean.substring(6, 8);
+            return `${mm}${dd}${yyyy}`;
+        }
+    }
+    return clean;
 };
 
 export const preprocessImage = (file: File): Promise<string> => {
@@ -84,9 +134,9 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
                  
                  RULES:
                  1. DATES: Format as MMDDYYYY (USA) or CCYYMMDD (Canada). NO separators.
-                 2. SEX: Return '1' (Male), '2' (Female).
+                 2. SEX: Return '1' (Male), '2' (Female). If text says 'M' or 'Male' return '1'.
                  3. HEIGHT: Format as '000 in' (e.g. 5'09" = '069 in').
-                 4. EYES/HAIR: Extract the text (e.g. Brown, Blue).
+                 4. EYES/HAIR: Extract text (e.g. Brown).
                  5. STATE: 2-letter code.
                  6. ADDRESS: Street, City, Zip (only numbers and hyphen).
                  7. CLASS: License class code.
@@ -139,12 +189,20 @@ export const scanDLWithGemini = async (base64Image: string, apiKey: string): Pro
         if (typeof val === 'number') val = String(val);
         if (typeof val !== 'string') return;
         
-        // Post-processing for strict compliance
+        val = val.trim();
+
+        // Normalizers
         if (key === 'DAY') val = normalizeCode(val, EYE_COLORS);
         if (key === 'DAZ') val = normalizeCode(val, HAIR_COLORS);
+        if (key === 'DAU') val = normalizeHeight(val);
+        if (key.startsWith('DB') || key === 'DEB') val = normalizeDate(val);
+        
         if (key === 'DBC') {
-             if (val === 'M' || val === 'Male') val = '1';
-             if (val === 'F' || val === 'Female') val = '2';
+             const v = val.toUpperCase();
+             if (v === 'M' || v === 'MALE') val = '1';
+             else if (v === 'F' || v === 'FEMALE') val = '2';
+             else if (v === '1' || v === '2') {} // keep as is
+             else val = '1'; // fallback
         }
         
         sanitized[key] = val;
