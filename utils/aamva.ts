@@ -11,18 +11,22 @@ const RS = "\x1E"; // Record Separator
 const CR = "\x0D"; // Segment Terminator / Subfile Terminator
 
 const formatHeight = (h: string) => {
-  // Обработка формата 5-04 или 5'04"
   const parts = h.split(/['-]/);
   if (parts.length >= 2) {
     const feet = parseInt(parts[0], 10) || 0;
     const inches = parseInt(parts[1], 10) || 0;
     const totalInches = (feet * 12) + inches;
-    return `${totalInches.toString().padStart(3, '0')} in`;
+    return `${totalInches.toString().padStart(3, '0')} IN`;
   }
-  // Если введены просто цифры (напр. 064)
   const digits = h.replace(/\D/g, '');
-  if (digits.length > 0) return `${digits.padStart(3, '0')} in`;
-  return "000 in";
+  if (digits.length > 0) return `${digits.padStart(3, '0')} IN`;
+  return "000 IN";
+};
+
+const formatWeight = (w: string) => {
+  const digits = w.replace(/\D/g, '');
+  if (!digits) return "000 LB";
+  return `${digits.padStart(3, '0')} LB`;
 };
 
 const sanitize = (val: string, placeholder = "NONE") => {
@@ -34,14 +38,17 @@ export const generateAAMVAString = (data: DLFormData): string => {
   const subfields: string[] = [];
 
   const add = (tag: string, val: string, isMandatory = true) => {
-    const placeholder = isMandatory ? "NONE" : "";
-    const cleanVal = tag === "DAU" ? formatHeight(val) : sanitize(val, placeholder);
+    let cleanVal = "";
+    if (tag === "DAU") cleanVal = formatHeight(val);
+    else if (tag === "DAW") cleanVal = formatWeight(val);
+    else cleanVal = sanitize(val, isMandatory ? "NONE" : "");
+
     if (cleanVal || isMandatory) {
       subfields.push(`${tag}${cleanVal}`);
     }
   };
 
-  // Порядок тегов AAMVA 2020
+  // Порядок тегов AAMVA 2020 (Таблица D.3)
   add("DCA", data.DCA || "C");
   add("DCB", data.DCB);
   add("DCD", data.DCD);
@@ -61,11 +68,17 @@ export const generateAAMVAString = (data: DLFormData): string => {
   add("DAQ", data.DAQ); // ID Number
   add("DCF", data.DCF); // Document Disc.
   add("DCG", data.DCG || "USA");
+  
+  // Optional but recommended
+  add("DAW", data.DAW, false);
+  add("DAZ", data.DAZ, false);
+  
+  // Truncation indicators (AAMVA 2020 Requirement)
   add("DDE", data.DDE || "N");
   add("DDF", data.DDF || "N");
   add("DDG", data.DDG || "N");
 
-  const subfileType = "DL";
+  const subfileType = data.subfileType || "DL";
   const subfileBody = subfields.join(LF) + CR;
   const fullSubfile = subfileType + subfileBody;
 

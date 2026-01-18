@@ -1,3 +1,4 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { JURISDICTIONS } from './constants';
 import { Jurisdiction, DLFormData } from './types';
@@ -7,7 +8,7 @@ import { validateAAMVAStructure } from './utils/validator';
 import BarcodeCanvas from './components/BarcodeCanvas';
 import { 
   ArrowLeft, Camera, Search, Settings, Key, Fingerprint,
-  ShieldCheck, ClipboardCheck, Check, Info
+  ShieldCheck, ClipboardCheck, Check, Info, User
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -23,6 +24,7 @@ const App: React.FC = () => {
 
   const [formData, setFormData] = useState<DLFormData>({
     IIN: '', Version: '10', JurisdictionVersion: '00', DDA: 'F',
+    subfileType: 'DL',
     DCA: 'C', DCB: 'NONE', DCD: 'NONE', DBA: '', DCS: '', DAC: '', DAD: '',
     DBD: '', DBB: '', DBC: '1', DAY: 'BRO', DAU: '5-08',
     DAG: '', DAI: '', DAJ: '', DAK: '', DAQ: '', DCF: '', DCG: 'USA', 
@@ -40,7 +42,7 @@ const App: React.FC = () => {
       ...prev, 
       DAJ: jur.code, 
       IIN: jur.iin, 
-      Version: '10',
+      JurisdictionVersion: jur.version,
       DCG: jur.country || 'USA',
       DBD: new Date().toISOString().slice(0, 10).replace(/-/g, '')
     }));
@@ -65,20 +67,21 @@ const App: React.FC = () => {
       
       if (detectedJur) {
         setSelectedJurisdiction(detectedJur);
-        setFormData(prev => ({ ...prev, ...updates, IIN: detectedJur.iin, DAJ: detectedJur.code }));
+        setFormData(prev => ({ 
+          ...prev, 
+          ...updates, 
+          IIN: detectedJur.iin, 
+          DAJ: detectedJur.code,
+          JurisdictionVersion: detectedJur.version 
+        }));
       } else {
         setFormData(prev => ({ ...prev, ...updates }));
       }
       setStep('FORM');
     } catch (err: any) {
-      console.error("Full Scan Error Details:", err);
-      const msg = err.message || "An unknown error occurred during AI scanning.";
-      alert(`AI Scan Failed: ${msg}`);
-      
-      // If unauthorized, prompt for settings
-      if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("api key")) {
-        setIsSettingsOpen(true);
-      }
+      console.error("Scan Error:", err);
+      alert(`AI Scan Failed: ${err.message || "Unknown error"}`);
+      if (err.message?.includes("API key")) setIsSettingsOpen(true);
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -159,13 +162,32 @@ const App: React.FC = () => {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
             <div className="lg:col-span-3 bg-slate-900 rounded-[2.5rem] p-8 sm:p-12 border border-slate-800 shadow-2xl space-y-12">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4 border-b border-slate-800 pb-8">
-                <div>
-                  <h3 className="text-4xl font-black tracking-tight">{selectedJurisdiction?.name}</h3>
-                  <p className="text-sky-500 font-mono text-xs mt-1">AAMVA 2020 STANDARD • v10 COMPLIANT</p>
+                <div className="flex items-center gap-4">
+                   <div className="bg-sky-500/10 p-4 rounded-2xl">
+                     <User className="text-sky-500" size={32} />
+                   </div>
+                   <div>
+                    <h3 className="text-4xl font-black tracking-tight">{selectedJurisdiction?.name}</h3>
+                    <p className="text-sky-500 font-mono text-xs mt-1 uppercase tracking-tighter">AAMVA 2020 • v{formData.JurisdictionVersion} Compliance</p>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-center">
-                    <p className="text-[9px] text-slate-500 font-bold uppercase">IIN Code</p>
+                <div className="flex gap-3">
+                  <div className="flex flex-col">
+                    <label className="text-[9px] text-slate-500 font-black uppercase mb-1">Doc Type</label>
+                    <div className="flex bg-slate-950 border border-slate-800 rounded-xl p-1">
+                      {['DL', 'ID'].map(type => (
+                        <button 
+                          key={type}
+                          onClick={() => setFormData({...formData, subfileType: type as any})}
+                          className={`px-4 py-1.5 rounded-lg text-[10px] font-bold transition-all ${formData.subfileType === type ? 'bg-sky-600 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="bg-slate-950 px-4 py-2 rounded-xl border border-slate-800 text-center min-w-[80px]">
+                    <p className="text-[9px] text-slate-500 font-bold uppercase">IIN</p>
                     <p className="font-mono text-sm">{formData.IIN}</p>
                   </div>
                 </div>
@@ -190,14 +212,14 @@ const App: React.FC = () => {
                   <input value={formData.DAQ} onChange={e => setFormData({...formData, DAQ: e.target.value.toUpperCase()})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono tracking-widest focus:border-sky-500 outline-none" />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between">Document Discriminator <span>DCF</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between">Audit/DD Code <span>DCF</span></label>
                   <input value={formData.DCF} placeholder="Audit Code" onChange={e => setFormData({...formData, DCF: e.target.value.toUpperCase()})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono focus:border-sky-500 outline-none" />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 md:grid-cols-4 gap-8 border-t border-slate-800 pt-10">
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Birth Date</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Birth Date (MDY)</label>
                   <input value={formData.DBB} placeholder="MMDDCCYY" onChange={e => setFormData({...formData, DBB: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono" />
                 </div>
                 <div className="space-y-2">
@@ -210,18 +232,31 @@ const App: React.FC = () => {
                 </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase">Height (F-II)</label>
-                  <input value={formData.DAU} placeholder="5-04" onChange={e => setFormData({...formData, DAU: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono" />
+                  <input value={formData.DAU} placeholder="5-08" onChange={e => setFormData({...formData, DAU: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono" />
                 </div>
                 <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Weight (LB)</label>
+                  <input value={formData.DAW} placeholder="165" onChange={e => setFormData({...formData, DAW: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm font-mono" />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-8">
+                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase">Eyes</label>
                   <select value={formData.DAY} onChange={e => setFormData({...formData, DAY: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm appearance-none">
-                    {['BRO','BLU','GRN','HAZ','GRY','BLK'].map(c => <option key={c} value={c}>{c}</option>)}
+                    {['BRO','BLU','GRN','HAZ','GRY','BLK','DIC','PNK'].map(c => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase">Hair</label>
+                  <select value={formData.DAZ} onChange={e => setFormData({...formData, DAZ: e.target.value})} className="w-full bg-slate-950 border border-slate-800 rounded-xl p-4 text-sm appearance-none">
+                    {['BAL','BLK','BLN','BRO','GRY','RED','SDY','WHI'].map(c => <option key={c} value={c}>{c}</option>)}
                   </select>
                 </div>
               </div>
 
               <button onClick={handleGenerate} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-2xl font-black text-xl transition-all shadow-xl shadow-sky-900/20 active:scale-[0.99] flex items-center justify-center gap-3">
-                <ShieldCheck /> GENERATE ENCODED STREAM
+                <ShieldCheck /> GENERATE AAMVA 2020 STREAM
               </button>
             </div>
 
@@ -232,10 +267,10 @@ const App: React.FC = () => {
                 </h4>
                 <div className="space-y-3">
                   {[
-                    { l: "Header v10", s: "ok" },
-                    { l: "Subfile Offset 31", s: "ok" },
-                    { l: "LF/RS/CR Delimiters", s: "ok" },
-                    { l: "ISO-8859-1 Charset", s: "ok" }
+                    { l: `Subfile ID: ${formData.subfileType}`, s: "ok" },
+                    { l: `Jur. Version: ${formData.JurisdictionVersion}`, s: "ok" },
+                    { l: "DAW/DAZ Included", s: "ok" },
+                    { l: "LF/RS/CR Delimiters", s: "ok" }
                   ].map((x, i) => (
                     <div key={i} className="flex items-center justify-between text-[11px] bg-slate-950/50 p-3 rounded-xl border border-slate-800/30">
                       <span className="text-slate-400 font-medium">{x.l}</span>

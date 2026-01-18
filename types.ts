@@ -12,18 +12,18 @@ export interface DLFormData {
   IIN: string;
   Version: string;
   JurisdictionVersion: string;
-  DDA: string; // Compliance
+  subfileType: 'DL' | 'ID'; // New: DL or ID
   
   // Mandatory Elements (AAMVA 2020)
   DCA: string; // Class
   DCB: string; // Restrictions
   DCD: string; // Endorsements
-  DBA: string; // Expiry Date (CCYYMMDD)
+  DBA: string; // Expiry Date (MMDDCCYY)
   DCS: string; // Last Name
   DAC: string; // First Name
   DAD: string; // Middle Name
-  DBD: string; // Issue Date (CCYYMMDD)
-  DBB: string; // DOB (CCYYMMDD)
+  DBD: string; // Issue Date (MMDDCCYY)
+  DBB: string; // DOB (MMDDCCYY)
   DBC: string; // Sex
   DAY: string; // Eye Color
   DAU: string; // Height
