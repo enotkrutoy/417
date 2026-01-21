@@ -5,9 +5,6 @@ import { JURISDICTIONS } from '../constants';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * Preprocess image for OCR: resize and convert to base64
- */
 export const preprocessImage = (file: File): Promise<string> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -36,17 +33,11 @@ export const preprocessImage = (file: File): Promise<string> => {
   });
 };
 
-/**
- * Helper to find jurisdiction by state code (e.g., 'NY', 'CA')
- */
 export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {
   const cleanCode = (code || "").trim().toUpperCase();
   return JURISDICTIONS.find(j => j.code === cleanCode) || null;
 };
 
-/**
- * Perform OCR and data extraction using Gemini Vision API
- */
 export const scanDLWithGemini = async (
   base64: string, 
   onRetry?: (attempt: number) => void
@@ -67,16 +58,14 @@ export const scanDLWithGemini = async (
           {
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-              { text: `Analyze the Driver's License or ID card image. 
-              Extract all fields according to AAMVA 2020 standard.
-              CRITICAL: 
-              - Return all dates in YYYYMMDD format for normalization.
-              - Map Sex (DBC) to numeric: "1" (Male), "2" (Female), "9" (Unknown).
-              - Extract the country identification (DCG) correctly (USA or CAN).
-              - Extract the state code (DAJ) as 2 characters.
-              - Extract ID number (DAQ), Family Name (DCS), First Name (DAC).
-              - Height (DAU) as "5-09" or "175 cm".
-              - Output JSON only matching the provided schema.` }
+              { text: `Analyze Driver's License/ID. Extract AAMVA 2020 fields.
+              Rules:
+              - Dates: YYYYMMDD
+              - Sex (DBC): "1" (M), "2" (F), "9" (X/Other)
+              - Height (DAU): e.g. "5-09" or "175 cm"
+              - Country (DCG): USA or CAN
+              - State (DAJ): 2-char code
+              JSON only.` }
             ]
           }
         ],
@@ -85,41 +74,40 @@ export const scanDLWithGemini = async (
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              DCS: { type: Type.STRING, description: "Family Name" },
-              DAC: { type: Type.STRING, description: "First Name" },
-              DAD: { type: Type.STRING, description: "Middle Name" },
-              DAQ: { type: Type.STRING, description: "ID Number" },
-              DBB: { type: Type.STRING, description: "DOB (YYYYMMDD)" },
-              DBA: { type: Type.STRING, description: "Expiry (YYYYMMDD)" },
-              DBD: { type: Type.STRING, description: "Issue (YYYYMMDD)" },
-              DAJ: { type: Type.STRING, description: "State Code (2 chars)" },
-              DAG: { type: Type.STRING, description: "Street Address" },
-              DAI: { type: Type.STRING, description: "City" },
-              DAK: { type: Type.STRING, description: "Zip Code" },
-              DAU: { type: Type.STRING, description: "Height" },
-              DAY: { type: Type.STRING, description: "Eye Color" },
-              DBC: { type: Type.STRING, description: "Sex (1/2/9)" },
-              DCG: { type: Type.STRING, description: "Country (USA/CAN)" },
-              DCF: { type: Type.STRING, description: "Document Discriminator" }
+              DCS: { type: Type.STRING },
+              DAC: { type: Type.STRING },
+              DAD: { type: Type.STRING },
+              DAQ: { type: Type.STRING },
+              DBB: { type: Type.STRING },
+              DBA: { type: Type.STRING },
+              DBD: { type: Type.STRING },
+              DAJ: { type: Type.STRING },
+              DAG: { type: Type.STRING },
+              DAI: { type: Type.STRING },
+              DAK: { type: Type.STRING },
+              DAU: { type: Type.STRING },
+              DAY: { type: Type.STRING },
+              DBC: { type: Type.STRING },
+              DCG: { type: Type.STRING },
+              DCF: { type: Type.STRING }
             }
           }
         },
       });
 
       const text = response.text;
-      if (!text) throw new Error("Received empty response from neural link.");
+      if (!text) throw new Error("Neural link extraction failed.");
       
       const parsed = JSON.parse(text);
       const result: Record<string, string> = {};
       Object.entries(parsed).forEach(([k, v]) => {
-        if (v !== null && v !== undefined) result[k] = String(v).toUpperCase().trim();
+        if (v) result[k] = String(v).toUpperCase().trim();
       });
       return result;
     } catch (e) {
-      console.error(`Neural extraction attempt ${attempt} failed:`, e);
       if (attempt === maxRetries) throw e;
       await sleep(2000);
     }
   }
-  throw new Error("Neural link extraction failed.");
+  throw new Error("Neural link failed.");
 };
