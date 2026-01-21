@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useMemo } from 'react';
-import { JURISDICTIONS } from './constants';
-import { Jurisdiction, DLFormData } from './types';
+import { JURISDICTIONS, PRESETS } from './constants';
+import { Jurisdiction, DLFormData, DLDataPreset } from './types';
 import { generateAAMVAString } from './utils/aamva';
 import { preprocessImage, scanDLWithGemini, detectJurisdictionFromCode } from './utils/ocr';
 import { validateAAMVAStructure } from './utils/validator';
@@ -12,7 +12,7 @@ import {
   Activity, Terminal, Printer, Edit3, Loader2,
   FileCode, Database, RefreshCcw, Copy, Layout,
   Hash, Calendar, MapPin, Ruler, Eye, Briefcase,
-  AlertTriangle, Fingerprint, Shield
+  AlertTriangle, Fingerprint, Shield, Box, Layers
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -41,6 +41,10 @@ const App: React.FC = () => {
 
   const generatedString = useMemo(() => generateAAMVAString(formData), [formData]);
   const validation = useMemo(() => validateAAMVAStructure(generatedString, formData), [generatedString, formData]);
+
+  const handleApplyPreset = (preset: DLDataPreset) => {
+    setFormData(prev => ({ ...prev, ...preset.data }));
+  };
 
   const handleCopy = () => {
     navigator.clipboard.writeText(generatedString);
@@ -140,7 +144,7 @@ const App: React.FC = () => {
                 <ShieldCheck size={14}/> AAMVA 2020 Compliance Engine
               </div>
               <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent italic">Vector Kernel</h2>
-              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium">Профессиональный генератор PDF417 для водительских удостоверений США и Канады.</p>
+              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium italic">Профессиональный генератор PDF417 для водительских удостоверений США и Канады.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -239,7 +243,7 @@ const App: React.FC = () => {
                   <InputField label="Endorsements" tag="DCD" placeholder="NONE" />
                   <InputField label="Class" tag="DCA" placeholder="C" />
                   <div className="lg:col-span-3 border-t border-white/5 pt-6 mt-4">
-                     <h5 className="text-[9px] font-black text-sky-500 uppercase tracking-widest mb-4">Identity Markers</h5>
+                     <h5 className="text-[9px] font-black text-sky-500 uppercase tracking-widest mb-4 italic">Identity Markers</h5>
                   </div>
                   <InputField label="Compliance" tag="DDA" maxLength={1} />
                   <InputField label="Revision" tag="DDB" placeholder="YYYYMMDD" />
@@ -247,12 +251,32 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <button onClick={() => setStep('RESULT')} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.3)] flex items-center justify-center gap-4 group">
+              <button onClick={() => setStep('RESULT')} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.3)] flex items-center justify-center gap-4 group italic">
                 <FileCode className="group-hover:rotate-12 transition-transform" size={24} /> COMPILE MATRIX
               </button>
             </div>
 
             <div className="lg:col-span-4 space-y-6">
+              {/* Presets Card */}
+              <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-6 shadow-xl">
+                 <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] italic flex items-center gap-2"><Layers size={14}/> Test Nodes</h4>
+                 <div className="grid grid-cols-1 gap-3">
+                   {PRESETS.map(preset => (
+                     <button 
+                       key={preset.id} 
+                       onClick={() => handleApplyPreset(preset)}
+                       className="w-full p-4 bg-slate-950/50 border border-white/5 hover:border-sky-500/40 rounded-2xl text-left transition-all group"
+                     >
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-[11px] font-black text-slate-200 uppercase italic">{preset.label}</span>
+                          <Box size={14} className="text-slate-600 group-hover:text-sky-400 transition-colors" />
+                        </div>
+                        <p className="text-[9px] text-slate-500 font-medium italic">{preset.description}</p>
+                     </button>
+                   ))}
+                 </div>
+              </div>
+
               <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-8 shadow-xl sticky top-28">
                  <div className="flex items-center justify-between">
                     <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] italic">Kernel Validation</h4>
@@ -261,7 +285,7 @@ const App: React.FC = () => {
                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className={`h-full transition-all duration-1000 ${validation.overallScore > 90 ? 'bg-emerald-500' : 'bg-sky-600'}`} style={{ width: `${validation.overallScore}%` }} />
                  </div>
-                 <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                 <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
                     {validation.fields.map(f => (
                       <div key={f.elementId} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${f.status === 'CRITICAL_INVALID' ? 'bg-rose-500/10 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]' : 'bg-white/5 border-transparent'}`}>
                         <div className="flex flex-col">
@@ -279,7 +303,7 @@ const App: React.FC = () => {
                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2">
                       <div className="flex items-center gap-2 text-amber-500">
                         <AlertTriangle size={14} />
-                        <span className="text-[9px] font-black uppercase">Standards Warning</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest italic">Standards Warning</span>
                       </div>
                       {validation.complianceNotes.map((note, i) => (
                         <p key={i} className="text-[9px] text-amber-200/70 font-medium italic leading-tight">• {note}</p>
@@ -330,31 +354,43 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] space-y-6 no-print">
+            {/* Advanced Bitstream Explorer */}
+            <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] space-y-8 no-print backdrop-blur-md">
                <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
-                    <Terminal size={16} className="text-sky-500" />
-                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Bitstream Matrix</h4>
+                    <Terminal size={16} className="text-sky-400" />
+                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Bitstream Matrix Explorer</h4>
                   </div>
-                  <span className="text-[9px] font-mono text-sky-500/50 bg-sky-500/5 px-3 py-1 rounded-full">{generatedString.length} BYTES</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/5 px-3 py-1 rounded-full uppercase italic tracking-widest">Compliant Vector</span>
+                  </div>
                </div>
-               <div className="bg-slate-950 p-8 rounded-3xl font-mono text-[10px] break-all leading-relaxed text-sky-400/80 border border-white/5 select-all max-h-[180px] overflow-y-auto custom-scrollbar group relative">
-                 <div className="absolute top-4 right-4 text-[8px] font-black uppercase text-slate-700 group-hover:text-sky-900 transition-colors">ANSI 15434 COMPLIANT</div>
-                 {generatedString}
+
+               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-6 bg-slate-950/60 border border-emerald-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
+                     <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] italic">0-21 Bytes</span>
+                     <h5 className="text-xs font-black italic">ANSI Header</h5>
+                     <p className="text-[9px] text-slate-500 font-medium italic">Standard file prefix with IIN & Version markers.</p>
+                  </div>
+                  <div className="p-6 bg-slate-950/60 border border-sky-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
+                     <span className="text-[8px] font-black text-sky-500 uppercase tracking-[0.2em] italic">21-31 Bytes</span>
+                     <h5 className="text-xs font-black italic">Subfile Designator</h5>
+                     <p className="text-[9px] text-slate-500 font-medium italic">Lookup table for subfile offset and length.</p>
+                  </div>
+                  <div className="p-6 bg-slate-950/60 border border-indigo-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
+                     <span className="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] italic">31+ Bytes</span>
+                     <h5 className="text-xs font-black italic">Matrix Payload</h5>
+                     <p className="text-[9px] text-slate-500 font-medium italic">Encrypted/Plain AAMVA tags with LF/CR delimiters.</p>
+                  </div>
                </div>
-               <div className="flex items-center gap-4 px-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-[8px] font-black uppercase text-slate-500">Header @</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-sky-500" />
-                    <span className="text-[8px] font-black uppercase text-slate-500">Designator DL</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
-                    <span className="text-[8px] font-black uppercase text-slate-500">Subfile Data</span>
-                  </div>
+
+               <div className="bg-slate-950 p-8 rounded-[2.5rem] font-mono text-[10px] break-all leading-relaxed text-sky-400/80 border border-white/5 select-all max-h-[220px] overflow-y-auto custom-scrollbar relative">
+                 <div className="absolute top-4 right-8 text-[8px] font-black uppercase text-slate-700">ANSI 15434 V.2020</div>
+                 {/* Visual parsing simulation */}
+                 <span className="text-emerald-400 font-black">{generatedString.substring(0, 21)}</span>
+                 <span className="text-sky-400 font-black">{generatedString.substring(21, 31)}</span>
+                 <span className="text-slate-300">{generatedString.substring(31)}</span>
                </div>
             </div>
           </div>

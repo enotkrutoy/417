@@ -1,9 +1,17 @@
+
 export interface Jurisdiction {
   name: string;
   code: string;
   iin: string;
   version: string;
   country?: string;
+}
+
+export interface DLDataPreset {
+  id: string;
+  label: string;
+  description: string;
+  data: Partial<DLFormData>;
 }
 
 export interface DLFormData {
