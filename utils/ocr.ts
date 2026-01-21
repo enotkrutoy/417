@@ -5,6 +5,9 @@ import { JURISDICTIONS } from '../constants';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
+/**
+ * Preprocess image for OCR: resize and convert to base64
+ */
 export const preprocessImage = (file: File): Promise<string> => {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -33,18 +36,34 @@ export const preprocessImage = (file: File): Promise<string> => {
   });
 };
 
+/**
+ * Helper to find jurisdiction by state code (e.g., 'NY', 'CA')
+ */
+export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {
+  const cleanCode = (code || "").trim().toUpperCase();
+  return JURISDICTIONS.find(j => j.code === cleanCode) || null;
+};
+
+/**
+ * Perform OCR and data extraction using Gemini Vision API
+ */
 export const scanDLWithGemini = async (
   base64: string, 
   onRetry?: (attempt: number) => void
 ): Promise<Record<string, string>> => {
+  // Use the API key exclusively from environment variables
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw new Error("Системный API ключ не обнаружен.");
   
+  // Initialize AI client inside the function context
   const ai = new GoogleGenAI({ apiKey });
   const maxRetries = 1;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     try {
+      if (attempt > 0 && onRetry) onRetry(attempt);
+
+      // Using gemini-3-flash-preview for vision extraction tasks
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview', 
         contents: [
@@ -52,9 +71,13 @@ export const scanDLWithGemini = async (
             parts: [
               { inlineData: { mimeType: 'image/jpeg', data: base64 } },
               { text: `Analyze the Driver's License or ID card image. 
-              Extract all available fields according to AAMVA 2020 standard.
-              CRITICAL: Dates must be in YYYYMMDD format.
-              Output JSON only.` }
+              Extract all fields according to AAMVA 2020 standard.
+              CRITICAL: 
+              - Return all dates in YYYYMMDD format for normalization.
+              - Map Sex (DBC) to numeric: "1" (Male), "2" (Female), "9" (Unknown).
+              - Extract the country identification (DCG) correctly (USA or CAN).
+              - Extract the state code (DAJ) as 2 characters.
+              - Output JSON only matching the provided schema.` }
             ]
           }
         ],
@@ -63,7 +86,7 @@ export const scanDLWithGemini = async (
           responseSchema: {
             type: Type.OBJECT,
             properties: {
-              DCS: { type: Type.STRING, description: "Last Name" },
+              DCS: { type: Type.STRING, description: "Family Name" },
               DAC: { type: Type.STRING, description: "First Name" },
               DAD: { type: Type.STRING, description: "Middle Name" },
               DAQ: { type: Type.STRING, description: "ID Number" },
@@ -74,42 +97,28 @@ export const scanDLWithGemini = async (
               DAG: { type: Type.STRING, description: "Street Address" },
               DAI: { type: Type.STRING, description: "City" },
               DAK: { type: Type.STRING, description: "Zip Code" },
-              DCF: { type: Type.STRING, description: "Document Discriminator/Audit" },
-              DAU: { type: Type.STRING, description: "Height (e.g. 5-11)" },
-              DAY: { type: Type.STRING, description: "Eye Color (3 chars)" },
-              DDK: { type: Type.STRING, description: "Organ Donor (1/0)" },
-              DDA: { type: Type.STRING, description: "Compliance (F/N)" }
-            },
-            required: ["DCS", "DAC", "DAQ", "DAJ"]
+              DAU: { type: Type.STRING, description: "Height" },
+              DAY: { type: Type.STRING, description: "Eye Color" },
+              DBC: { type: Type.STRING, description: "Sex" },
+              DCG: { type: Type.STRING, description: "Country" }
+            }
           }
-        }
+        },
       });
 
+      // Extract text content directly from response.text property
       const text = response.text;
-      if (!text) throw new Error("Empty Neural Response");
+      if (!text) throw new Error("Received empty response from the vision model.");
       
-      const data = JSON.parse(text);
-      const result: Record<string, string> = {};
-      
-      Object.entries(data).forEach(([k, v]) => {
-        if (v !== null && v !== undefined) result[k] = String(v).toUpperCase().trim();
-      });
-      
-      return result;
-
-    } catch (e: any) {
-      if (attempt < maxRetries) {
-        onRetry?.(attempt + 1);
-        await sleep(1500);
-        continue;
-      }
-      throw e;
+      return JSON.parse(text);
+    } catch (e) {
+      console.error(`Extraction attempt ${attempt} failed:`, e);
+      if (attempt === maxRetries) throw e;
+      // Exponential backoff strategy
+      await sleep(1500 * (attempt + 1));
     }
   }
-  throw new Error("Neural Link Failed");
-};
-
-export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {
-  const search = (code || "").toUpperCase().trim();
-  return JURISDICTIONS.find(j => j.code === search) || null;
+  
+  // Ensure the function returns or throws in all execution paths
+  throw new Error("Data extraction failed after multiple attempts.");
 };
