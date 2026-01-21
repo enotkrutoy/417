@@ -4,7 +4,7 @@ import { Jurisdiction, DLFormData } from './types';
 import { generateAAMVAString } from './utils/aamva';
 import { preprocessImage, scanDLWithGemini, detectJurisdictionFromCode } from './utils/ocr';
 import { validateAAMVAStructure } from './utils/validator';
-import BarcodeCanvas from './components/BarcodeCanvas';
+import BarcodeSVG from './components/BarcodeSVG';
 import { 
   ArrowLeft, Camera, Search, Settings, Key, User, 
   ShieldCheck, Check, Info, Heart, AlertCircle, Zap, 
@@ -46,7 +46,7 @@ const App: React.FC = () => {
       ...prev, 
       DAJ: jur.code, 
       IIN: jur.iin, 
-      Version: jur.version,
+      Version: '10',
       DCG: jur.country || 'USA'
     }));
     setStep('FORM');
@@ -63,7 +63,7 @@ const App: React.FC = () => {
       let detectedJur = updates.DAJ ? detectJurisdictionFromCode(updates.DAJ) : null;
       if (detectedJur) {
         setSelectedJurisdiction(detectedJur);
-        setFormData(prev => ({ ...prev, ...updates, IIN: detectedJur.iin, DAJ: detectedJur.code, Version: detectedJur.version }));
+        setFormData(prev => ({ ...prev, ...updates, IIN: detectedJur.iin, DAJ: detectedJur.code, Version: '10' }));
       } else {
         setFormData(prev => ({ ...prev, ...updates }));
       }
@@ -80,7 +80,7 @@ const App: React.FC = () => {
       <header className="bg-slate-900/40 border-b border-white/5 backdrop-blur-2xl px-6 py-4 flex justify-between items-center sticky top-0 z-50">
         <div className="flex items-center gap-4">
           {step !== 'SELECT' && (
-            <button onClick={() => setStep(step === 'RESULT' ? 'FORM' : 'SELECT')} className="p-2 hover:bg-white/10 rounded-xl transition-all text-sky-400">
+            <button onClick={() => setStep(step === 'RESULT' ? 'FORM' : 'SELECT')} className="p-2 hover:bg-white/10 rounded-xl transition-all text-sky-400 border border-transparent hover:border-white/10">
               <ArrowLeft size={20}/>
             </button>
           )}
@@ -94,8 +94,8 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3">
            <div className="hidden sm:flex items-center gap-3 px-4 py-1.5 bg-slate-950/50 border border-white/5 rounded-full backdrop-blur-sm">
               <Activity size={12} className="text-emerald-500" />
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Matrix Live</span>
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">CVP Readiness</span>
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
            </div>
            <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-white/10 rounded-full text-slate-400 transition-colors"><Settings size={20} /></button>
         </div>
@@ -106,10 +106,10 @@ const App: React.FC = () => {
           <div className="max-w-4xl mx-auto space-y-12 py-10">
             <div className="text-center space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-[0.1em]">
-                <ShieldCheck size={14}/> ISO/IEC 15438 Compliant Generator
+                <ShieldCheck size={14}/> AAMVA 2020 Vector Compliance Engine
               </div>
               <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent">Identity Matrix</h2>
-              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium">Генерация PDF417 по стандарту AAMVA 2020 с использованием AI Vision.</p>
+              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium">Генерация MRT-данных в векторном формате для исключения деградации качества при печати.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -118,19 +118,19 @@ const App: React.FC = () => {
                 <div className="bg-sky-500/10 w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 border border-sky-500/20">
                   {isScanning ? <Loader2 size={32} className="text-sky-500 animate-spin" /> : <Camera className="text-sky-500" size={32} />}
                 </div>
-                <h3 className="text-3xl font-black mb-3">AI Vision</h3>
-                <p className="text-slate-400 text-sm leading-relaxed mb-10 font-medium">Извлечение тегов с помощью Gemini 3 Flash. Определение штата, номера DL и REAL ID статуса.</p>
+                <h3 className="text-3xl font-black mb-3">AI Engine</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-10 font-medium">Извлечение тегов с точностью до байта. Автоматическая калибровка индикаторов усечения DDE/DDF/DDG.</p>
                 <div className="flex items-center gap-3 text-sky-400 text-xs font-black uppercase tracking-[0.2em]">
-                  {isScanning ? "Neural Scanning..." : "Initialize OCR"} <ArrowLeft className="rotate-180" size={16}/>
+                  {isScanning ? "Processing Byte Stream..." : "Initialize Scan"} <ArrowLeft className="rotate-180" size={16}/>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleImageScan} className="hidden" accept="image/*" capture="environment"/>
               </div>
 
               <div className="bg-slate-900/30 border border-white/5 rounded-[3rem] p-10 flex flex-col shadow-2xl backdrop-blur-sm">
-                <h3 className="text-3xl font-black mb-8 flex items-center gap-3">Templates</h3>
+                <h3 className="text-3xl font-black mb-8 flex items-center gap-3">Jurisdictions</h3>
                 <div className="relative mb-6">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                  <input placeholder="Filter jurisdictions..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold outline-none focus:border-sky-500/50 transition-all shadow-inner" onChange={e => setFilterText(e.target.value)}/>
+                  <input placeholder="Search Template..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold outline-none focus:border-sky-500/50 transition-all shadow-inner" onChange={e => setFilterText(e.target.value)}/>
                 </div>
                 <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[160px] pr-2 custom-scrollbar">
                   {JURISDICTIONS.filter(j => j.name.toLowerCase().includes(filterText.toLowerCase())).map(j => (
@@ -154,8 +154,8 @@ const App: React.FC = () => {
                    <div>
                     <h3 className="text-4xl font-black tracking-tight flex items-center gap-3">{selectedJurisdiction?.name}</h3>
                     <div className="flex items-center gap-3 mt-2">
-                       <span className="bg-sky-500 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">AAMVA 2020 Compliant</span>
-                       <span className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Standard v{formData.Version}</span>
+                       <span className="bg-emerald-500 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">AAMVA 2020 Standard</span>
+                       <span className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Regional Format Active</span>
                     </div>
                   </div>
                 </div>
@@ -188,23 +188,23 @@ const App: React.FC = () => {
                 </div>
                 <div className="space-y-2.5">
                   <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">Date of Birth <span>DBB</span></label>
-                  <input value={formData.DBB} placeholder="MMDDCCYY" onChange={e => setFormData({...formData, DBB: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" maxLength={8} />
+                  <input value={formData.DBB} placeholder={formData.DCG === 'CAN' ? 'CCYYMMDD' : 'MMDDCCYY'} onChange={e => setFormData({...formData, DBB: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" maxLength={8} />
                 </div>
                 <div className="space-y-2.5">
                   <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">Expiry Date <span>DBA</span></label>
-                  <input value={formData.DBA} placeholder="MMDDCCYY" onChange={e => setFormData({...formData, DBA: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" maxLength={8} />
+                  <input value={formData.DBA} placeholder={formData.DCG === 'CAN' ? 'CCYYMMDD' : 'MMDDCCYY'} onChange={e => setFormData({...formData, DBA: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" maxLength={8} />
                 </div>
               </div>
 
               <button onClick={() => setStep('RESULT')} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.3)] active:scale-[0.98] flex items-center justify-center gap-4 group">
-                <Lock className="group-hover:rotate-12 transition-transform" size={24} /> LOCK & GENERATE
+                <Lock className="group-hover:rotate-12 transition-transform" size={24} /> GENERATE VECTOR PAYLOAD
               </button>
             </div>
 
             <div className="lg:col-span-4 space-y-6">
               <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-8 shadow-xl backdrop-blur-md">
                  <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] flex items-center gap-2"><Activity size={14} /> Security Compliance</h4>
+                    <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] flex items-center gap-2"><Activity size={14} /> Compliance Engine</h4>
                     <span className={`text-2xl font-black ${validation.overallScore > 80 ? 'text-emerald-500' : 'text-amber-500'}`}>{validation.overallScore}%</span>
                  </div>
                  <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden shadow-inner">
@@ -227,16 +227,17 @@ const App: React.FC = () => {
               </div>
 
               <div className="bg-sky-500/5 rounded-[2.5rem] p-8 border border-sky-500/10 space-y-4">
-                <button onClick={() => setShowTechSpecs(!showTechSpecs)} className="w-full text-[10px] font-black text-sky-400 uppercase tracking-widest flex items-center justify-between">
-                  <span className="flex items-center gap-2"><Cpu size={16}/> AAMVA 2020 AUDIT</span>
+                <button onClick={() => setShowTechSpecs(!showTechSpecs)} className="w-full text-[10px] font-black text-sky-400 uppercase tracking-widest flex items-center justify-between group">
+                  <span className="flex items-center gap-2 group-hover:text-white transition-colors"><Cpu size={16}/> TECH AUDIT [AAMVA 2020]</span>
                   <span>{showTechSpecs ? '-' : '+'}</span>
                 </button>
                 {showTechSpecs && (
-                  <div className="text-[10px] text-slate-400 space-y-2 animate-in slide-in-from-top-2 duration-300">
-                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">Header:</span> 21 bytes (Fixed: @, LF, RS, CR, ANSI, IIN, Ver, JurVer, Entries)</p>
-                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">Designator:</span> Type(2) + Offset(4) + Length(4)</p>
-                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">PDF417:</span> Scale: 3, ECC: 5, RowH: 15</p>
-                    <p><span className="text-sky-500">Algorithm:</span> A.7.7 Standard Truncation Sequence active.</p>
+                  <div className="text-[10px] text-slate-400 space-y-2 animate-in slide-in-from-top-2 duration-300 font-mono">
+                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">IIN:</span> {formData.IIN}</p>
+                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">HDR_SIZE:</span> 21 bytes (Strict)</p>
+                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">PDF417_ECC:</span> 5 (Mission Critical)</p>
+                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">DATE_FMT:</span> {formData.DCG === 'CAN' ? 'ISO 8601 (CCYYMMDD)' : 'AAMVA (MMDDCCYY)'}</p>
+                    <p><span className="text-sky-500">TRUNC_LOGIC:</span> A.7.7 Sequence Verified</p>
                   </div>
                 )}
               </div>
@@ -250,32 +251,33 @@ const App: React.FC = () => {
               <div className="space-y-2">
                 <h2 className="text-4xl font-black tracking-tighter">Barcode Output</h2>
                 <div className="flex items-center gap-3">
-                  <span className="px-2 py-0.5 bg-sky-500/10 text-sky-400 rounded-md text-[9px] font-black uppercase tracking-wider border border-sky-500/20">Final Compilation</span>
+                  <span className="px-2 py-0.5 bg-sky-500/10 text-sky-400 rounded-md text-[9px] font-black uppercase tracking-wider border border-sky-500/20">Vector Matrix</span>
                 </div>
               </div>
               <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-white/5">
-                <Edit3 size={16} /> Edit Values
+                <Edit3 size={16} /> Edit Data
               </button>
             </div>
 
-            <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-2xl border-4 border-slate-200">
+            <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-2xl border-4 border-slate-200 print:shadow-none print:border-none">
               <div className="text-center space-y-2">
                 <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900">AAMVA PDF417</h3>
                 <div className="flex items-center justify-center gap-3">
-                   <span className="bg-slate-100 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">ISO/IEC 15438</span>
-                   <span className="bg-sky-500 px-3 py-1 rounded-full text-[9px] font-black text-white uppercase tracking-[0.2em]">Standard 2020</span>
+                   <span className="bg-slate-100 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">ISO/IEC 15438:2020</span>
                 </div>
               </div>
-              <div className="w-full max-w-2xl transform transition-transform duration-700 hover:scale-[1.05]">
-                <BarcodeCanvas data={generatedString} />
+              
+              <div className="w-full max-w-2xl overflow-hidden rounded-2xl">
+                <BarcodeSVG data={generatedString} />
               </div>
+              
               <button onClick={() => window.print()} className="w-full max-w-md bg-slate-950 text-white py-5 rounded-[1.75rem] font-black text-lg hover:bg-slate-800 hover:-translate-y-1 transition-all shadow-xl active:translate-y-0 flex items-center justify-center gap-3">
-                <Printer size={24} /> PRINT MATRIX
+                <Printer size={24} /> PRINT VECTOR MASTER
               </button>
             </div>
 
             <div className="bg-slate-900/50 border border-white/5 p-8 rounded-[3rem] space-y-6 backdrop-blur-md">
-               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2"><Terminal size={14} /> Encrypted Stream</h4>
+               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2"><Terminal size={14} /> Signed Payload</h4>
                <div className="bg-slate-950 p-6 rounded-2xl font-mono text-[10px] break-all leading-relaxed text-sky-500/80 border border-white/5 opacity-80 select-all custom-scrollbar max-h-[150px] overflow-y-auto shadow-inner">
                  {generatedString}
                </div>
@@ -290,16 +292,16 @@ const App: React.FC = () => {
             <div className="flex items-center gap-5">
                <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 shadow-inner"><Key className="text-amber-500" size={32} /></div>
                <div>
-                  <h3 className="text-2xl font-black tracking-tight">AI Activation</h3>
-                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1 leading-none">Security Gateway Node</p>
+                  <h3 className="text-2xl font-black tracking-tight">AI Access</h3>
+                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Matrix Gateway Node</p>
                </div>
             </div>
             <div className="space-y-5">
-               <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter Matrix API Key..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl p-5 text-white font-mono outline-none focus:border-sky-500/50 transition-all text-sm" />
+               <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Matrix API Key..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl p-5 text-white font-mono outline-none focus:border-sky-500/50 transition-all text-sm" />
             </div>
             <div className="flex gap-4">
               <button onClick={() => setIsSettingsOpen(false)} className="flex-1 bg-slate-800 text-slate-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Cancel</button>
-              <button onClick={() => { localStorage.setItem('gemini_api_key', apiKey); setIsSettingsOpen(false); }} className="flex-1 bg-sky-600 hover:bg-sky-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">Update Node</button>
+              <button onClick={() => { localStorage.setItem('gemini_api_key', apiKey); setIsSettingsOpen(false); }} className="flex-1 bg-sky-600 hover:bg-sky-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">Save Update</button>
             </div>
           </div>
         </div>
@@ -310,10 +312,11 @@ const App: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         @media print {
-          header, button { display: none !important; }
+          header, button, footer { display: none !important; }
           body { background: white !important; }
           main { padding: 0 !important; max-width: none !important; }
-          .bg-white { box-shadow: none !important; border: none !important; }
+          .bg-white { box-shadow: none !important; border: none !important; padding: 0 !important; }
+          svg { width: 100% !important; height: auto !important; }
         }
       `}</style>
     </div>

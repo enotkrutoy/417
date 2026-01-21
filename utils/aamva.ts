@@ -35,20 +35,22 @@ export const truncateAAMVA = (name: string, limit: number): { text: string; trun
 };
 
 const formatHeight = (h: string) => {
+  const val = h.replace(/\D/g, '');
   if (h.toLowerCase().includes('cm')) {
-    return h.replace(/\D/g, '').padStart(3, '0') + " CM";
+    return val.padStart(3, '0') + " CM";
   }
   const parts = h.split(/['-]/);
   if (parts.length >= 2) {
     const totalInches = (parseInt(parts[0], 10) * 12) + (parseInt(parts[1], 10) || 0);
     return `${totalInches.toString().padStart(3, '0')} IN`;
   }
-  return h.replace(/\D/g, '').padStart(3, '0') + " IN";
+  return val.padStart(3, '0') + " IN";
 };
 
 export const generateAAMVAString = (data: DLFormData): string => {
   const subfields: string[] = [];
   
+  // Dynamic Truncation
   const lastTrunc = truncateAAMVA(data.DCS || "", 40);
   const firstTrunc = truncateAAMVA(data.DAC || "", 40);
   const midTrunc = truncateAAMVA(data.DAD || "", 40);
@@ -57,31 +59,33 @@ export const generateAAMVAString = (data: DLFormData): string => {
     if (val) subfields.push(`${tag}${val.toUpperCase().trim()}`);
   };
 
-  // Mandatory Elements
+  // Table D.3 (Mandatory)
   add("DCA", data.DCA || "C");
   add("DCB", data.DCB || "NONE");
   add("DCD", data.DCD || "NONE");
-  add("DBA", data.DBA.replace(/\D/g, ''));
+  add("DBA", (data.DBA || "").replace(/\D/g, ''));
   add("DCS", lastTrunc.text);
   add("DAC", firstTrunc.text);
   add("DAD", midTrunc.text);
-  add("DBD", data.DBD.replace(/\D/g, ''));
-  add("DBB", data.DBB.replace(/\D/g, ''));
+  add("DBD", (data.DBD || "").replace(/\D/g, ''));
+  add("DBB", (data.DBB || "").replace(/\D/g, ''));
   add("DBC", data.DBC || "1");
   add("DAY", data.DAY || "BRO");
   add("DAU", formatHeight(data.DAU || "509"));
   add("DAG", data.DAG || "");
   add("DAI", data.DAI || "");
   add("DAJ", data.DAJ || "");
-  add("DAK", data.DAK.replace(/\D/g, ''));
+  add("DAK", (data.DAK || "").replace(/\D/g, ''));
   add("DAQ", data.DAQ || "NONE");
   add("DCF", data.DCF || "NONE");
   add("DCG", data.DCG || "USA");
+  
+  // Truncation Indicators (Section D.12.5.1)
   add("DDE", lastTrunc.truncated);
   add("DDF", firstTrunc.truncated);
   add("DDG", midTrunc.truncated);
 
-  // Optional Elements
+  // Table D.4 (Optional Priority)
   if (data.DAW) add("DAW", data.DAW.replace(/\D/g, '').padStart(3, '0'));
   if (data.DAZ) add("DAZ", data.DAZ);
   if (data.DDA) add("DDA", data.DDA);
@@ -91,15 +95,15 @@ export const generateAAMVAString = (data: DLFormData): string => {
   const subfileBody = subfields.join(LF) + CR;
   const fullSubfile = subfileType + subfileBody;
 
+  // Header Construction (Fixed 21 bytes)
   const iin = (data.IIN || "636000").substring(0, 6).padEnd(6, '0');
-  const version = "10"; 
+  const version = "10"; // Mandatory for 2020
   const jurVersion = (data.JurisdictionVersion || "00").padStart(2, '0');
-  
-  // Header: 21 bytes total
   const header = "@" + LF + RS + CR + "ANSI " + iin + version + jurVersion + "01";
   
-  // Designator: Type(2) + Offset(4) + Length(4) = 10 bytes
-  const offset = header.length + 10; 
+  // Designator (Fixed 10 bytes)
+  // Offset = Header(21) + DesignatorBlock(10 * NumberOfSubfiles)
+  const offset = 21 + 10; 
   const designator = subfileType + offset.toString().padStart(4, '0') + fullSubfile.length.toString().padStart(4, '0');
 
   return header + designator + fullSubfile;
