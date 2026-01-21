@@ -15,13 +15,13 @@ const BarcodeCanvas: React.FC<BarcodeCanvasProps> = ({ data }) => {
         bwipjs.toCanvas(canvasRef.current, {
           bcid: 'pdf417',
           text: data,
-          scale: 2,             // Оптимальный X-dimension для стандартных ID
-          height: 12,            // Row height >= 3X
-          eclevel: 5,           // Повышенный уровень коррекции для надежности (AAMVA 2020)
-          columns: 0,           // Авто-расчет колонок
+          scale: 3,             // Scale 3 provides excellent resolution for high-DPI prints
+          height: 12,            // Row height >= 3X (X=1)
+          eclevel: 5,           // Standard 2020 recommends level 5 for mission critical ID
+          columns: 0,           // Optimal columns calculated automatically
           rows: 0,
           includetext: false,
-          padding: 2,           // Свободная зона (Quiet Zone)
+          padding: 2,           // Standard A.7.3 compliance
         });
       } catch (e) {
         console.error('Barcode generation error:', e);
@@ -30,8 +30,8 @@ const BarcodeCanvas: React.FC<BarcodeCanvasProps> = ({ data }) => {
   }, [data]);
 
   return (
-    <div className="flex justify-center p-6 bg-white border border-slate-100 rounded-[2rem] shadow-inner">
-      <canvas id="generated-pdf417" ref={canvasRef} className="max-w-full h-auto" />
+    <div className="flex justify-center p-8 bg-white rounded-[3rem] shadow-[inset_0_2px_10px_rgba(0,0,0,0.05)] border border-slate-100">
+      <canvas id="generated-pdf417" ref={canvasRef} className="max-w-full h-auto drop-shadow-sm" />
     </div>
   );
 };
