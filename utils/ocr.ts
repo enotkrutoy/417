@@ -18,10 +18,7 @@ export const preprocessImage = (file: File): Promise<string> => {
           w *= r; h *= r;
         }
         canvas.width = w; canvas.height = h;
-        if (ctx) {
-          ctx.filter = 'contrast(1.1) brightness(1.0)';
-          ctx.drawImage(img, 0, 0, w, h);
-        }
+        if (ctx) ctx.drawImage(img, 0, 0, w, h);
         resolve(canvas.toDataURL('image/jpeg', 0.8).split(',')[1]);
       };
       img.src = e.target?.result as string;
@@ -32,30 +29,28 @@ export const preprocessImage = (file: File): Promise<string> => {
 
 export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<Record<string, string>> => {
   const ai = new GoogleGenAI({ apiKey });
-  
   const response = await ai.models.generateContent({
     model: 'gemini-3-flash-preview', 
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-        { text: `Analyze identification card. Extract into AAMVA tags:
+        { text: `Extract AAMVA tags from ID card image:
         - DCS: Last Name
         - DAC: First Name
-        - DAD: Middle/Suffix
-        - DAQ: ID Number
+        - DAD: Middle Name
+        - DCU: Name Suffix (e.g., JR, III)
+        - DAQ: ID/DL Number
         - DBB: DOB (MMDDCCYY)
         - DBA: Expiry (MMDDCCYY)
         - DBD: Issue (MMDDCCYY)
-        - DCF: DOCUMENT DISCRIMINATOR / AUDIT NUMBER
-        - DAU: Height (e.g., 5-04)
-        - DAW: Weight (lb)
-        - DAZ: Hair Color (3-letter: BLN, BRO, etc.)
+        - DCF: Audit Number (DD field)
+        - DAU: Height (e.g. 5'-04")
         - DBC: Sex (1=M, 2=F)
-        - DAY: Eye Color (3-letter: BRO, BLU, etc.)
-        - DAG, DAI, DAJ, DAK: Full Address
-        - subfileType: 'DL' if Driver's License, 'ID' if State/Provincial ID card.
-        
-        Return JSON object.` }
+        - DAY: Eye Color (3-letter)
+        - DAG, DAI, DAJ, DAK: Address components
+        - DDA: 'F' if has Gold Star (REAL ID), 'N' otherwise.
+        - DDK: '1' if has DONOR symbol/heart, '0' otherwise.
+        Return JSON.` }
       ]
     },
     config: {
@@ -66,6 +61,7 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
           DCS: { type: Type.STRING },
           DAC: { type: Type.STRING },
           DAD: { type: Type.STRING },
+          DCU: { type: Type.STRING },
           DAQ: { type: Type.STRING },
           DBB: { type: Type.STRING },
           DBA: { type: Type.STRING },
@@ -76,19 +72,17 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
           DAK: { type: Type.STRING },
           DBC: { type: Type.STRING },
           DAY: { type: Type.STRING },
-          DAZ: { type: Type.STRING },
-          DAW: { type: Type.STRING },
           DAU: { type: Type.STRING },
           DCF: { type: Type.STRING },
-          subfileType: { type: Type.STRING, description: "DL or ID" }
+          DDA: { type: Type.STRING },
+          DDK: { type: Type.STRING }
         }
       }
     }
   });
 
   try {
-    let jsonText = response.text || "{}";
-    const raw = JSON.parse(jsonText.replace(/```json|```/g, '').trim());
+    const raw = JSON.parse(response.text || "{}");
     const cleaned: Record<string, string> = {};
     Object.keys(raw).forEach(key => {
       let val = String(raw[key] || "").toUpperCase().trim();
@@ -96,9 +90,7 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
       cleaned[key] = val;
     });
     return cleaned;
-  } catch (e) {
-    throw new Error("Failed to parse AI response. Ensure your image is clear.");
-  }
+  } catch (e) { throw new Error("Parse error"); }
 };
 
 export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {

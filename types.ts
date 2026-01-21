@@ -12,7 +12,7 @@ export interface DLFormData {
   IIN: string;
   Version: string;
   JurisdictionVersion: string;
-  subfileType: 'DL' | 'ID'; // New: DL or ID
+  subfileType: 'DL' | 'ID';
   
   // Mandatory Elements (AAMVA 2020)
   DCA: string; // Class
@@ -24,7 +24,7 @@ export interface DLFormData {
   DAD: string; // Middle Name
   DBD: string; // Issue Date (MMDDCCYY)
   DBB: string; // DOB (MMDDCCYY)
-  DBC: string; // Sex
+  DBC: string; // Sex (1=M, 2=F)
   DAY: string; // Eye Color
   DAU: string; // Height
   DAG: string; // Address
@@ -35,10 +35,12 @@ export interface DLFormData {
   DCF: string; // Document Discriminator
   DCG: string; // Country
   
-  // Optional/Computed
+  // Optional/Texas Specific
+  DCU: string; // Name Suffix (e.g. III, JR)
+  DDA: string; // Compliance Indicator (F=REAL ID)
+  DDK: string; // Organ Donor (1=Yes)
   DAW: string; // Weight
   DAZ: string; // Hair Color
-  DEB: string; // File Creation Date
   [key: string]: string;
 }
 
@@ -56,5 +58,5 @@ export interface ValidationReport {
   isHeaderValid: boolean;
   rawString: string;
   fields: ValidationField[];
-  overallScore: number; // 0-100
+  overallScore: number;
 }

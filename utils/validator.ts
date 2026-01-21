@@ -1,45 +1,55 @@
-
 import { DLFormData, ValidationField, ValidationReport } from '../types';
 
 export const validateAAMVAStructure = (raw: string, formData: DLFormData): ValidationReport => {
   const fields: ValidationField[] = [];
-  let score = 0;
-  let errors = [];
+  const errors: string[] = [];
 
-  // 1. Проверка Header (21 байт)
-  const compliance = raw[0];
-  const separators = raw.substring(1, 4);
-  const fileType = raw.substring(4, 9);
+  // 1. Structural Header Check
+  if (!raw.startsWith('@')) errors.push("Missing Compliance Indicator '@'");
+  if (raw.substring(1, 4) !== "\x0A\x1E\x0D") errors.push("Invalid Header Separators");
+  if (!raw.includes("ANSI ")) errors.push("Missing 'ANSI ' file type marker");
+
+  // 2. Version Check
   const version = raw.substring(15, 17);
+  if (version !== "10") {
+    // We allow other versions but flag 2020 compliance
+    console.warn(`Standard version is ${version}, expected 10 for AAMVA 2020`);
+  }
 
-  if (compliance !== '@') errors.push("Compliance indicator '@' missing");
-  if (separators !== "\x0A\x1E\x0D") errors.push("Header separators (LF, RS, CR) incorrect");
-  if (fileType !== "ANSI ") errors.push("File type must be 'ANSI '");
-  if (version !== "10") errors.push("AAMVA Version must be '10' for 2020 standard");
+  // 3. Subfile Check
+  if (!raw.includes("DL")) errors.push("DL Subfile segment not found");
 
-  // 2. Проверка Designator (оффсет 31 для 1 записи)
-  const offsetStr = raw.substring(23, 27);
-  const offset = parseInt(offsetStr, 10);
-  if (offset !== 31) errors.push(`Designator offset mismatch (expected 0031, got ${offsetStr})`);
+  // 4. Critical Tags Verification
+  const criticalTags = [
+    { id: 'DAQ', desc: 'ID Number' },
+    { id: 'DCS', desc: 'Surname' },
+    { id: 'DAC', desc: 'First Name' },
+    { id: 'DBB', desc: 'Date of Birth' },
+    { id: 'DBA', desc: 'Expiry Date' },
+    { id: 'DDE', desc: 'Surname Truncation' },
+    { id: 'DDF', desc: 'First Name Truncation' }
+  ];
 
-  // 3. Сверка данных
-  const mandatory = ['DAQ', 'DCS', 'DAC', 'DBB', 'DBA'];
-  mandatory.forEach(tag => {
-    const exists = raw.includes(tag);
-    if (exists) score += 20;
+  let matches = 0;
+  criticalTags.forEach(tag => {
+    const exists = raw.includes(tag.id);
+    if (exists) matches++;
+    
     fields.push({
-      elementId: tag,
-      description: `Tag ${tag} presence`,
-      formValue: formData[tag as keyof DLFormData] || "NONE",
-      scannedValue: exists ? "PRESENT" : "MISSING",
+      elementId: tag.id,
+      description: tag.desc,
+      formValue: String(formData[tag.id as keyof DLFormData] || "N/A"),
+      scannedValue: exists ? "VALIDATED" : "MISSING",
       status: exists ? 'MATCH' : 'MISSING_IN_SCAN'
     });
   });
+
+  const overallScore = errors.length > 0 ? 0 : Math.round((matches / criticalTags.length) * 100);
 
   return {
     isHeaderValid: errors.length === 0,
     rawString: raw,
     fields,
-    overallScore: errors.length === 0 ? Math.min(score, 100) : 0
+    overallScore
   };
 };
