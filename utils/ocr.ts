@@ -16,7 +16,7 @@ export const preprocessImage = (file: File): Promise<string> => {
           const r = Math.min(MAX_DIM/w, MAX_DIM/h);
           w *= r; h *= r;
         }
-        canvas.width = w; canvas.height = h;
+        canvas.width = w; canvas.width = w; canvas.height = h;
         if (ctx) {
           ctx.imageSmoothingEnabled = true;
           ctx.imageSmoothingQuality = 'high';
@@ -37,16 +37,29 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
     contents: {
       parts: [
         { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-        { text: `Extract AAMVA 2020 tags from ID/DL image. 
-        Focus on accuracy for:
-        - DCS: Last Name, DAC: First, DAD: Middle
-        - DAQ: License/ID Number
-        - DCF: Document Discriminator (Critical! Often labeled 'Audit', 'DD', or found in corners/back)
-        - DBB: DOB, DBA: Expiry, DBD: Issue (Extract numeric only)
-        - DAJ: 2-char State Code, DCG: Country (USA/CAN)
-        - DAU: Height (e.g., 5-11 or 180 cm)
-        - DDA: Compliance (F=Star/RealID, N=None)
-        Return strictly JSON.` }
+        { text: `Extract AAMVA 2020 tags from the Driver's License or ID card image.
+        Return strictly JSON with these keys:
+        - DCS: Last Name
+        - DAC: First Name
+        - DAD: Middle Name
+        - DCU: Name Suffix (JR, SR, III, etc.)
+        - DAQ: License Number
+        - DCF: Document Discriminator (Extremely Important! Search for labels like 'Audit', 'Audit #', 'DD', or 'Document Discriminator'. Often located in a corner or the bottom edge)
+        - DBB: Date of Birth (numeric only)
+        - DBA: Expiration Date (numeric only)
+        - DBD: Issue Date (numeric only)
+        - DAJ: 2-character State/Province Code
+        - DCG: Country Code (USA or CAN)
+        - DDA: Compliance (F for Star/RealID, N for None)
+        - DDB: Card Revision/Design Date (Look for small dates near edge or 'Rev')
+        - DDK: Organ Donor (1 for Yes, 0 for No)
+        - DAU: Height
+        - DAW: Weight
+        - DAY: Eye Color
+        - DAZ: Hair Color
+        - DAG: Street Address
+        - DAI: City
+        - DAK: ZIP/Postal Code` }
       ]
     },
     config: {
@@ -70,7 +83,11 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
           DAY: { type: Type.STRING },
           DAZ: { type: Type.STRING },
           DDA: { type: Type.STRING },
-          DDK: { type: Type.STRING }
+          DDB: { type: Type.STRING },
+          DDK: { type: Type.STRING },
+          DAG: { type: Type.STRING },
+          DAI: { type: Type.STRING },
+          DAK: { type: Type.STRING }
         }
       }
     }
@@ -81,12 +98,16 @@ export const scanDLWithGemini = async (base64: string, apiKey: string): Promise<
     const cleaned: Record<string, string> = {};
     Object.keys(raw).forEach(key => {
       let val = String(raw[key] || "").toUpperCase().trim();
-      // Only clean characters from numeric fields, but allow 'X' for sex if needed
-      if (['DBA', 'DBB', 'DBD', 'DAW'].includes(key)) val = val.replace(/\D/g, '');
+      // Only clean numeric fields
+      if (['DBA', 'DBB', 'DBD', 'DAW', 'DDB'].includes(key)) {
+        val = val.replace(/\D/g, '');
+      }
       cleaned[key] = val;
     });
     return cleaned;
-  } catch (e) { throw new Error("JSON Parse failure in AI Engine"); }
+  } catch (e) { 
+    throw new Error("Failed to parse AI response. Ensure the image is clear."); 
+  }
 };
 
 export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {

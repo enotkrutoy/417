@@ -39,6 +39,7 @@ const formatHeight = (h: string) => {
 /**
  * Normalizes dates based on AAMVA 2020 D.12.5.1
  * USA: MMDDCCYY, CAN: CCYYMMDD
+ * Heuristically detects and corrects wrong input order.
  */
 const formatAAMVADate = (dateStr: string, country: string): string => {
   const d = dateStr.replace(/\D/g, '');
@@ -48,10 +49,12 @@ const formatAAMVADate = (dateStr: string, country: string): string => {
   const isUS = country !== 'CAN';
 
   if (isUS) {
-    // If input is CCYYMMDD (starts with 19/20), convert to MMDDCCYY
+    // Expected MMDDCCYY. 
+    // If input is CCYYMMDD (starts with 19/20), swap to MMDDCCYY
     if (firstTwo >= 19) return d.substring(4, 6) + d.substring(6, 8) + d.substring(0, 4);
   } else {
-    // If input is MMDDCCYY (starts with 0/1), convert to CCYYMMDD
+    // Expected CCYYMMDD.
+    // If input is MMDDCCYY (starts with 0/1), swap to CCYYMMDD
     if (firstTwo <= 12) return d.substring(4, 8) + d.substring(0, 4);
   }
   return d;
@@ -66,11 +69,12 @@ export const generateAAMVAString = (data: DLFormData): string => {
   const midTrunc = truncateAAMVA(data.DAD || "", 40);
 
   const add = (tag: string, val: string) => {
-    if (val !== undefined && val !== null) {
+    if (val !== undefined && val !== null && val !== "") {
       dlSubfields.push(`${tag}${val.toUpperCase().trim()}`);
     }
   };
 
+  // Order per AAMVA 2020 Table D.3 & D.4
   add("DCA", data.DCA || "C");
   add("DCB", data.DCB || "NONE");
   add("DCD", data.DCD || "NONE");
@@ -88,6 +92,7 @@ export const generateAAMVAString = (data: DLFormData): string => {
   add("DAJ", data.DAJ || "");
   
   // DAK Normalization (Annex D, Table D.3, Ref p)
+  // USA: 11 chars (zip-9 + zeros), Canada: Clean Alphanumeric as-is
   const cleanZip = (data.DAK || "").replace(/[^A-Z0-9]/g, '');
   add("DAK", isCanada ? cleanZip.substring(0, 11) : cleanZip.padEnd(11, '0').substring(0, 11));
 
@@ -98,17 +103,24 @@ export const generateAAMVAString = (data: DLFormData): string => {
   add("DDF", firstTrunc.truncated);
   add("DDG", midTrunc.truncated);
   
+  // Optional but recommended for 2020 Compliance
+  if (data.DCU) add("DCU", data.DCU);
   if (data.DAW) add("DAW", data.DAW.replace(/\D/g, '').padStart(3, '0'));
   if (data.DAZ) add("DAZ", data.DAZ);
   if (data.DDA) add("DDA", data.DDA);
+  if (data.DDB) add("DDB", formatAAMVADate(data.DDB, data.DCG));
   if (data.DDK) add("DDK", data.DDK);
   if (data.DDD) add("DDD", data.DDD);
 
   const subfileContent = "DL" + dlSubfields.join(LF) + CR;
+  
+  // Header: @ + LF + RS + CR + "ANSI " (10 chars) + IIN (6 chars) + Version (2 chars) + JurVersion (2 chars) + Entries (2 chars) = 21 bytes
   const iin = (data.IIN || "636000").substring(0, 6).padEnd(6, '0');
   const jurVersion = (data.JurisdictionVersion || "00").padStart(2, '0');
   const entries = "01";
   const header = "@" + LF + RS + CR + "ANSI " + iin + "10" + jurVersion + entries;
+  
+  // Subfile Designator: Type(2) + Offset(4) + Length(4) = 10 bytes per subfile
   const designatorOffset = 21 + (parseInt(entries) * 10);
   const designator = "DL" + designatorOffset.toString().padStart(4, '0') + subfileContent.length.toString().padStart(4, '0');
 
