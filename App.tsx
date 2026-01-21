@@ -12,13 +12,16 @@ import {
   Activity, Terminal, Printer, Edit3, Loader2,
   FileCode, Database, RefreshCcw, Copy, Layout,
   Hash, Calendar, MapPin, Ruler, Eye, Briefcase,
-  AlertTriangle, Fingerprint, Shield, Box, Layers
+  AlertTriangle, Fingerprint, Shield, Box, Layers,
+  FileText, CreditCard
 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [step, setStep] = useState<'SELECT' | 'FORM' | 'RESULT'>('SELECT');
   const [selectedJurisdiction, setSelectedJurisdiction] = useState<Jurisdiction | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isCompiling, setIsCompiling] = useState(false);
+  const [compilationStatus, setCompilationStatus] = useState("");
   const [retryCount, setRetryCount] = useState(0);
   const [scanError, setScanError] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
@@ -44,6 +47,17 @@ const App: React.FC = () => {
 
   const handleApplyPreset = (preset: DLDataPreset) => {
     setFormData(prev => ({ ...prev, ...preset.data }));
+  };
+
+  const handleCompile = async () => {
+    setIsCompiling(true);
+    const steps = ["Initializing ANSI Engine...", "Mapping Tags...", "Calculating Offsets...", "Applying PDF417 Logic...", "Finalizing Matrix..."];
+    for (const s of steps) {
+      setCompilationStatus(s);
+      await new Promise(r => setTimeout(r, 250));
+    }
+    setIsCompiling(false);
+    setStep('RESULT');
   };
 
   const handleCopy = () => {
@@ -98,7 +112,7 @@ const App: React.FC = () => {
   const InputField = ({ label, tag, placeholder = "", type = "text", maxLength = 100 }: { label: string, tag: string, placeholder?: string, type?: string, maxLength?: number }) => (
     <div className="space-y-1.5 group">
       <div className="flex justify-between items-center px-1">
-        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-focus-within:text-sky-400 transition-colors">{label}</label>
+        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-focus-within:text-sky-400 transition-colors italic">{label}</label>
         <span className="text-[8px] font-mono text-slate-600 opacity-0 group-focus-within:opacity-100 transition-opacity">{tag}</span>
       </div>
       <input 
@@ -114,6 +128,21 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col font-sans selection:bg-sky-500/30">
+      {isCompiling && (
+        <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-2xl flex flex-col items-center justify-center animate-in fade-in duration-300">
+           <div className="relative mb-8">
+              <div className="w-20 h-20 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                 <Zap size={24} className="text-sky-500 animate-pulse fill-sky-500" />
+              </div>
+           </div>
+           <h4 className="text-2xl font-black italic tracking-tighter text-white">{compilationStatus}</h4>
+           <div className="w-48 h-1 bg-slate-800 rounded-full mt-6 overflow-hidden">
+              <div className="h-full bg-sky-500 animate-[progress_1.5s_ease-in-out_infinite]" />
+           </div>
+        </div>
+      )}
+
       <header className="bg-slate-900/40 border-b border-white/5 backdrop-blur-2xl px-6 py-4 flex justify-between items-center sticky top-0 z-50 no-print">
         <div className="flex items-center gap-4">
           {step !== 'SELECT' && (
@@ -122,15 +151,15 @@ const App: React.FC = () => {
             </button>
           )}
           <div className="flex items-center gap-3">
-            <div className="bg-sky-600 p-1.5 rounded-lg">
+            <div className="bg-sky-600 p-1.5 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.3)]">
               <Zap size={18} className="text-white fill-white" />
             </div>
-            <h1 className="text-base font-black tracking-tight uppercase">MATRIX <span className="text-sky-500">PRO 2025</span></h1>
+            <h1 className="text-base font-black tracking-tight uppercase">MATRIX <span className="text-sky-500 italic">PRO 2025</span></h1>
           </div>
         </div>
         <div className="flex items-center gap-3">
            <div className="flex items-center gap-2 px-3 py-1 bg-slate-950/50 border border-white/5 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
               <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Neural Link Active</span>
            </div>
         </div>
@@ -194,7 +223,7 @@ const App: React.FC = () => {
             <div className="lg:col-span-8 bg-slate-900/60 rounded-[3.5rem] p-8 sm:p-12 border border-white/5 shadow-2xl space-y-10 backdrop-blur-xl">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-white/5 pb-10">
                 <div className="flex items-center gap-6">
-                   <div className="bg-sky-500/10 p-5 rounded-[1.5rem] border border-sky-500/20"><User className="text-sky-500" size={40} /></div>
+                   <div className="bg-sky-500/10 p-5 rounded-[1.5rem] border border-sky-500/20 shadow-inner"><User className="text-sky-500" size={40} /></div>
                    <div>
                     <h3 className="text-4xl font-black tracking-tight italic">{selectedJurisdiction?.name}</h3>
                     <div className="flex items-center gap-3 mt-2">
@@ -203,9 +232,25 @@ const App: React.FC = () => {
                     </div>
                   </div>
                 </div>
-                <div className="flex gap-2 bg-slate-950/50 p-1.5 rounded-2xl border border-white/5">
-                  <button onClick={() => setActiveTab('BASIC')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'BASIC' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}>Basic</button>
-                  <button onClick={() => setActiveTab('ADVANCED')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ADVANCED' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}>Advanced</button>
+                <div className="flex flex-col items-end gap-3">
+                   <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-white/5">
+                      <button 
+                        onClick={() => setFormData({...formData, subfileType: 'DL'})}
+                        className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[9px] font-black uppercase transition-all ${formData.subfileType === 'DL' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}
+                      >
+                         <CreditCard size={12}/> Driver License
+                      </button>
+                      <button 
+                        onClick={() => setFormData({...formData, subfileType: 'ID'})}
+                        className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[9px] font-black uppercase transition-all ${formData.subfileType === 'ID' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}
+                      >
+                         <FileText size={12}/> ID Card
+                      </button>
+                   </div>
+                   <div className="flex gap-2 bg-slate-950/50 p-1.5 rounded-2xl border border-white/5">
+                    <button onClick={() => setActiveTab('BASIC')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'BASIC' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}>Basic</button>
+                    <button onClick={() => setActiveTab('ADVANCED')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ADVANCED' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}>Advanced</button>
+                  </div>
                 </div>
               </div>
 
@@ -227,7 +272,7 @@ const App: React.FC = () => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-right-4 duration-300">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Sex</label>
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 italic">Sex</label>
                     <select value={formData.DBC} onChange={e => setFormData({...formData, DBC: e.target.value})} className="w-full bg-slate-950/40 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 appearance-none cursor-pointer">
                       <option value="1">1 - MALE</option>
                       <option value="2">2 - FEMALE</option>
@@ -251,13 +296,12 @@ const App: React.FC = () => {
                 </div>
               )}
 
-              <button onClick={() => setStep('RESULT')} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.3)] flex items-center justify-center gap-4 group italic">
+              <button onClick={handleCompile} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.4)] flex items-center justify-center gap-4 group italic">
                 <FileCode className="group-hover:rotate-12 transition-transform" size={24} /> COMPILE MATRIX
               </button>
             </div>
 
             <div className="lg:col-span-4 space-y-6">
-              {/* Presets Card */}
               <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-6 shadow-xl">
                  <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] italic flex items-center gap-2"><Layers size={14}/> Test Nodes</h4>
                  <div className="grid grid-cols-1 gap-3">
@@ -285,15 +329,15 @@ const App: React.FC = () => {
                  <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
                     <div className={`h-full transition-all duration-1000 ${validation.overallScore > 90 ? 'bg-emerald-500' : 'bg-sky-600'}`} style={{ width: `${validation.overallScore}%` }} />
                  </div>
-                 <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
                     {validation.fields.map(f => (
-                      <div key={f.elementId} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${f.status === 'CRITICAL_INVALID' ? 'bg-rose-500/10 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]' : 'bg-white/5 border-transparent'}`}>
+                      <div key={f.elementId} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${f.status === 'CRITICAL_INVALID' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-white/5 border-transparent'}`}>
                         <div className="flex flex-col">
                           <span className="text-[8px] font-black uppercase text-slate-500">{f.elementId}</span>
                           <span className="text-[10px] font-bold text-slate-300 truncate max-w-[120px]">{f.description}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                           <span className={`text-[8px] font-black uppercase ${f.status === 'MATCH' ? 'text-emerald-500' : 'text-rose-400'}`}>{f.status === 'MATCH' ? 'Valid' : 'Err'}</span>
+                           <span className={`text-[8px] font-black uppercase ${f.status === 'MATCH' ? 'text-emerald-500' : 'text-rose-400'}`}>{f.status === 'MATCH' ? 'Found' : 'Err'}</span>
                            {f.status === 'MATCH' ? <Check size={14} className="text-emerald-500"/> : <AlertCircle size={14} className="text-rose-500"/>}
                         </div>
                       </div>
@@ -303,7 +347,7 @@ const App: React.FC = () => {
                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2">
                       <div className="flex items-center gap-2 text-amber-500">
                         <AlertTriangle size={14} />
-                        <span className="text-[9px] font-black uppercase tracking-widest italic">Standards Warning</span>
+                        <span className="text-[9px] font-black uppercase tracking-widest italic">Compliance Logs</span>
                       </div>
                       {validation.complianceNotes.map((note, i) => (
                         <p key={i} className="text-[9px] text-amber-200/70 font-medium italic leading-tight">• {note}</p>
@@ -320,10 +364,10 @@ const App: React.FC = () => {
             <div className="flex justify-between items-end border-b border-white/5 pb-8 no-print">
               <div className="space-y-2">
                 <h2 className="text-4xl font-black tracking-tighter italic">Compiled Bitstream</h2>
-                <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 italic">Validated Node</span>
+                <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 italic">Node Verified</span>
               </div>
               <div className="flex gap-4">
-                <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"><Edit3 size={18} /> Edit Core</button>
+                <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all italic"><Edit3 size={18} /> Modify Core</button>
                 <button onClick={() => setStep('SELECT')} className="p-4 bg-sky-600/10 text-sky-400 rounded-2xl border border-sky-500/20 hover:bg-sky-600/20 transition-colors"><RefreshCcw size={18} /></button>
               </div>
             </div>
@@ -354,15 +398,14 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            {/* Advanced Bitstream Explorer */}
-            <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] space-y-8 no-print backdrop-blur-md">
+            <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] space-y-8 no-print backdrop-blur-md shadow-2xl">
                <div className="flex justify-between items-center">
                   <div className="flex items-center gap-3">
                     <Terminal size={16} className="text-sky-400" />
                     <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Bitstream Matrix Explorer</h4>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
                     <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/5 px-3 py-1 rounded-full uppercase italic tracking-widest">Compliant Vector</span>
                   </div>
                </div>
@@ -371,23 +414,22 @@ const App: React.FC = () => {
                   <div className="p-6 bg-slate-950/60 border border-emerald-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] italic">0-21 Bytes</span>
                      <h5 className="text-xs font-black italic">ANSI Header</h5>
-                     <p className="text-[9px] text-slate-500 font-medium italic">Standard file prefix with IIN & Version markers.</p>
+                     <p className="text-[9px] text-slate-500 font-medium italic leading-tight">Standard file prefix with IIN & Version markers.</p>
                   </div>
                   <div className="p-6 bg-slate-950/60 border border-sky-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
                      <span className="text-[8px] font-black text-sky-500 uppercase tracking-[0.2em] italic">21-31 Bytes</span>
                      <h5 className="text-xs font-black italic">Subfile Designator</h5>
-                     <p className="text-[9px] text-slate-500 font-medium italic">Lookup table for subfile offset and length.</p>
+                     <p className="text-[9px] text-slate-500 font-medium italic leading-tight">Lookup table for subfile offset and length.</p>
                   </div>
                   <div className="p-6 bg-slate-950/60 border border-indigo-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
                      <span className="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] italic">31+ Bytes</span>
                      <h5 className="text-xs font-black italic">Matrix Payload</h5>
-                     <p className="text-[9px] text-slate-500 font-medium italic">Encrypted/Plain AAMVA tags with LF/CR delimiters.</p>
+                     <p className="text-[9px] text-slate-500 font-medium italic leading-tight">Encrypted/Plain AAMVA tags with LF/CR delimiters.</p>
                   </div>
                </div>
 
                <div className="bg-slate-950 p-8 rounded-[2.5rem] font-mono text-[10px] break-all leading-relaxed text-sky-400/80 border border-white/5 select-all max-h-[220px] overflow-y-auto custom-scrollbar relative">
                  <div className="absolute top-4 right-8 text-[8px] font-black uppercase text-slate-700">ANSI 15434 V.2020</div>
-                 {/* Visual parsing simulation */}
                  <span className="text-emerald-400 font-black">{generatedString.substring(0, 21)}</span>
                  <span className="text-sky-400 font-black">{generatedString.substring(21, 31)}</span>
                  <span className="text-slate-300">{generatedString.substring(31)}</span>
@@ -398,6 +440,11 @@ const App: React.FC = () => {
       </main>
 
       <style>{`
+        @keyframes progress {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(100%); }
+        }
         .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
