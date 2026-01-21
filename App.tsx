@@ -11,7 +11,8 @@ import {
   ShieldCheck, Check, Info, Heart, AlertCircle, Zap, 
   Activity, Terminal, Printer, Edit3, Loader2,
   FileCode, Database, RefreshCcw, Copy, Layout,
-  Hash, Calendar, MapPin, Ruler
+  Hash, Calendar, MapPin, Ruler, Eye, Briefcase,
+  AlertTriangle, Fingerprint, Shield
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -47,9 +48,7 @@ const App: React.FC = () => {
     setTimeout(() => setCopyFeedback(false), 2000);
   };
 
-  const handlePrint = () => {
-    window.print();
-  };
+  const handlePrint = () => window.print();
 
   const handleSelectJurisdiction = (jur: Jurisdiction) => {
     setSelectedJurisdiction(jur);
@@ -92,6 +91,23 @@ const App: React.FC = () => {
     }
   };
 
+  const InputField = ({ label, tag, placeholder = "", type = "text", maxLength = 100 }: { label: string, tag: string, placeholder?: string, type?: string, maxLength?: number }) => (
+    <div className="space-y-1.5 group">
+      <div className="flex justify-between items-center px-1">
+        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-focus-within:text-sky-400 transition-colors">{label}</label>
+        <span className="text-[8px] font-mono text-slate-600 opacity-0 group-focus-within:opacity-100 transition-opacity">{tag}</span>
+      </div>
+      <input 
+        type={type}
+        value={formData[tag] || ""} 
+        placeholder={placeholder}
+        maxLength={maxLength}
+        onChange={e => setFormData({...formData, [tag]: e.target.value.toUpperCase()})} 
+        className="w-full bg-slate-950/40 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 focus:bg-slate-950/80 transition-all placeholder:text-slate-700" 
+      />
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col font-sans selection:bg-sky-500/30">
       <header className="bg-slate-900/40 border-b border-white/5 backdrop-blur-2xl px-6 py-4 flex justify-between items-center sticky top-0 z-50 no-print">
@@ -110,7 +126,7 @@ const App: React.FC = () => {
         </div>
         <div className="flex items-center gap-3">
            <div className="flex items-center gap-2 px-3 py-1 bg-slate-950/50 border border-white/5 rounded-full">
-              <Activity size={10} className="text-emerald-500" />
+              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Neural Link Active</span>
            </div>
         </div>
@@ -178,7 +194,7 @@ const App: React.FC = () => {
                    <div>
                     <h3 className="text-4xl font-black tracking-tight italic">{selectedJurisdiction?.name}</h3>
                     <div className="flex items-center gap-3 mt-2">
-                       <span className="bg-sky-600 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider italic">AAMVA V.10</span>
+                       <span className="bg-sky-600 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider italic">V.{formData.Version} REV</span>
                        <span className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">{formData.DCG} Region</span>
                     </div>
                   </div>
@@ -189,37 +205,47 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Family Name (DCS)</label>
-                  <input value={formData.DCS} onChange={e => setFormData({...formData, DCS: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" />
+              {activeTab === 'BASIC' ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-left-4 duration-300">
+                  <InputField label="Family Name" tag="DCS" />
+                  <InputField label="First Name" tag="DAC" />
+                  <InputField label="Middle Name" tag="DAD" />
+                  <InputField label="ID Number" tag="DAQ" />
+                  <InputField label="Birth Date" tag="DBB" placeholder="YYYYMMDD" maxLength={8} />
+                  <InputField label="Expiration Date" tag="DBA" placeholder="YYYYMMDD" maxLength={8} />
+                  <div className="lg:col-span-3">
+                    <InputField label="Address Line 1" tag="DAG" />
+                  </div>
+                  <InputField label="City" tag="DAI" />
+                  <InputField label="State" tag="DAJ" maxLength={2} />
+                  <InputField label="Zip Code" tag="DAK" maxLength={11} />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">First Name (DAC)</label>
-                  <input value={formData.DAC} onChange={e => setFormData({...formData, DAC: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" />
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-right-4 duration-300">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Sex</label>
+                    <select value={formData.DBC} onChange={e => setFormData({...formData, DBC: e.target.value})} className="w-full bg-slate-950/40 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 appearance-none cursor-pointer">
+                      <option value="1">1 - MALE</option>
+                      <option value="2">2 - FEMALE</option>
+                      <option value="9">9 - NON SPECIFIED</option>
+                    </select>
+                  </div>
+                  <InputField label="Eye Color" tag="DAY" placeholder="BRO/BLU/GRN" maxLength={3} />
+                  <InputField label="Hair Color" tag="DAZ" placeholder="BRO/BLK/BLN" maxLength={3} />
+                  <InputField label="Height" tag="DAU" placeholder="5-09 IN" />
+                  <InputField label="Weight (LBS)" tag="DAW" maxLength={3} />
+                  <InputField label="Issue Date" tag="DBD" placeholder="YYYYMMDD" />
+                  <InputField label="Restrictions" tag="DCB" placeholder="CORR LENSES" />
+                  <InputField label="Endorsements" tag="DCD" placeholder="NONE" />
+                  <InputField label="Class" tag="DCA" placeholder="C" />
+                  <div className="lg:col-span-3 border-t border-white/5 pt-6 mt-4">
+                     <h5 className="text-[9px] font-black text-sky-500 uppercase tracking-widest mb-4">Identity Markers</h5>
+                  </div>
+                  <InputField label="Compliance" tag="DDA" maxLength={1} />
+                  <InputField label="Revision" tag="DDB" placeholder="YYYYMMDD" />
+                  <InputField label="Discriminator" tag="DCF" />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">ID Number (DAQ)</label>
-                  <input value={formData.DAQ} onChange={e => setFormData({...formData, DAQ: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-black text-sky-400 tracking-widest outline-none focus:border-sky-500/50" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Birth Date (DBB: YYYYMMDD)</label>
-                  <input value={formData.DBB} placeholder="19900101" onChange={e => setFormData({...formData, DBB: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 font-mono" maxLength={8} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Expiration (DBA: YYYYMMDD)</label>
-                  <input value={formData.DBA} placeholder="20300101" onChange={e => setFormData({...formData, DBA: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 font-mono" maxLength={8} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Height (DAU)</label>
-                  <input value={formData.DAU} placeholder="5-09 IN" onChange={e => setFormData({...formData, DAU: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1">Address Line 1 (DAG)</label>
-                <input value={formData.DAG} onChange={e => setFormData({...formData, DAG: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" />
-              </div>
+              )}
 
               <button onClick={() => setStep('RESULT')} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.3)] flex items-center justify-center gap-4 group">
                 <FileCode className="group-hover:rotate-12 transition-transform" size={24} /> COMPILE MATRIX
@@ -227,7 +253,7 @@ const App: React.FC = () => {
             </div>
 
             <div className="lg:col-span-4 space-y-6">
-              <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-8 shadow-xl">
+              <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-8 shadow-xl sticky top-28">
                  <div className="flex items-center justify-between">
                     <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] italic">Kernel Validation</h4>
                     <span className={`text-2xl font-black italic ${validation.overallScore > 90 ? 'text-emerald-500' : 'text-amber-500'}`}>{validation.overallScore}%</span>
@@ -237,15 +263,29 @@ const App: React.FC = () => {
                  </div>
                  <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                     {validation.fields.map(f => (
-                      <div key={f.elementId} className={`flex items-center justify-between p-3 rounded-xl border ${f.status === 'CRITICAL_INVALID' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-white/5 border-transparent'}`}>
+                      <div key={f.elementId} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${f.status === 'CRITICAL_INVALID' ? 'bg-rose-500/10 border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.1)]' : 'bg-white/5 border-transparent'}`}>
                         <div className="flex flex-col">
                           <span className="text-[8px] font-black uppercase text-slate-500">{f.elementId}</span>
-                          <span className="text-[10px] font-bold text-slate-300">{f.description}</span>
+                          <span className="text-[10px] font-bold text-slate-300 truncate max-w-[120px]">{f.description}</span>
                         </div>
-                        {f.status === 'MATCH' ? <Check size={14} className="text-emerald-500"/> : <AlertCircle size={14} className="text-rose-500"/>}
+                        <div className="flex items-center gap-2">
+                           <span className={`text-[8px] font-black uppercase ${f.status === 'MATCH' ? 'text-emerald-500' : 'text-rose-400'}`}>{f.status === 'MATCH' ? 'Valid' : 'Err'}</span>
+                           {f.status === 'MATCH' ? <Check size={14} className="text-emerald-500"/> : <AlertCircle size={14} className="text-rose-500"/>}
+                        </div>
                       </div>
                     ))}
                  </div>
+                 {validation.complianceNotes.length > 0 && (
+                   <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2">
+                      <div className="flex items-center gap-2 text-amber-500">
+                        <AlertTriangle size={14} />
+                        <span className="text-[9px] font-black uppercase">Standards Warning</span>
+                      </div>
+                      {validation.complianceNotes.map((note, i) => (
+                        <p key={i} className="text-[9px] text-amber-200/70 font-medium italic leading-tight">• {note}</p>
+                      ))}
+                   </div>
+                 )}
               </div>
             </div>
           </div>
@@ -260,25 +300,31 @@ const App: React.FC = () => {
               </div>
               <div className="flex gap-4">
                 <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all"><Edit3 size={18} /> Edit Core</button>
-                <button onClick={() => setStep('SELECT')} className="p-4 bg-sky-600/10 text-sky-400 rounded-2xl border border-sky-500/20"><RefreshCcw size={18} /></button>
+                <button onClick={() => setStep('SELECT')} className="p-4 bg-sky-600/10 text-sky-400 rounded-2xl border border-sky-500/20 hover:bg-sky-600/20 transition-colors"><RefreshCcw size={18} /></button>
               </div>
             </div>
 
-            <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-2xl border-4 border-slate-200 print:m-0 print:p-0 print:border-none print:shadow-none">
-              <div className="text-center space-y-3">
+            <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none">
+              <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
+              
+              <div className="text-center space-y-3 relative z-10">
                 <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex items-center gap-4">
                   <Layout className="text-sky-600 no-print" size={40} /> PDF417 MATRIX
                 </h3>
-                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
+                <div className="flex items-center justify-center gap-3">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                  <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code} NODE</span>
+                </div>
               </div>
               
               <BarcodeSVG data={generatedString} />
 
               <div className="flex gap-4 w-full max-w-lg no-print">
-                 <button onClick={handlePrint} className="flex-1 bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 group italic">
-                    <Printer size={24} /> PRINT MASTER
+                 <button onClick={handlePrint} className="flex-1 bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 group italic shadow-xl">
+                    <Printer size={24} className="group-hover:translate-y-[-2px] transition-transform" /> PRINT MASTER
                  </button>
-                 <button onClick={handleCopy} className={`flex-1 py-6 rounded-[2.5rem] font-black text-xl transition-all flex items-center justify-center gap-4 italic ${copyFeedback ? 'bg-emerald-500 text-white' : 'bg-sky-100 text-sky-600 hover:bg-sky-200'}`}>
+                 <button onClick={handleCopy} className={`flex-1 py-6 rounded-[2.5rem] font-black text-xl transition-all flex items-center justify-center gap-4 italic shadow-xl ${copyFeedback ? 'bg-emerald-500 text-white' : 'bg-sky-100 text-sky-600 hover:bg-sky-200'}`}>
                     {copyFeedback ? <Check size={24} /> : <Copy size={24} />} {copyFeedback ? 'COPIED' : 'COPY RAW'}
                  </button>
               </div>
@@ -286,11 +332,29 @@ const App: React.FC = () => {
 
             <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] space-y-6 no-print">
                <div className="flex justify-between items-center">
-                  <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-3 italic"><Terminal size={16} /> Bitstream Matrix</h4>
-                  <span className="text-[9px] font-mono text-sky-500/50">{generatedString.length} BYTES</span>
+                  <div className="flex items-center gap-3">
+                    <Terminal size={16} className="text-sky-500" />
+                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Bitstream Matrix</h4>
+                  </div>
+                  <span className="text-[9px] font-mono text-sky-500/50 bg-sky-500/5 px-3 py-1 rounded-full">{generatedString.length} BYTES</span>
                </div>
-               <div className="bg-slate-950 p-8 rounded-3xl font-mono text-[10px] break-all leading-relaxed text-sky-400/80 border border-white/5 select-all max-h-[180px] overflow-y-auto custom-scrollbar">
+               <div className="bg-slate-950 p-8 rounded-3xl font-mono text-[10px] break-all leading-relaxed text-sky-400/80 border border-white/5 select-all max-h-[180px] overflow-y-auto custom-scrollbar group relative">
+                 <div className="absolute top-4 right-4 text-[8px] font-black uppercase text-slate-700 group-hover:text-sky-900 transition-colors">ANSI 15434 COMPLIANT</div>
                  {generatedString}
+               </div>
+               <div className="flex items-center gap-4 px-4">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-[8px] font-black uppercase text-slate-500">Header @</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-sky-500" />
+                    <span className="text-[8px] font-black uppercase text-slate-500">Designator DL</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                    <span className="text-[8px] font-black uppercase text-slate-500">Subfile Data</span>
+                  </div>
                </div>
             </div>
           </div>
