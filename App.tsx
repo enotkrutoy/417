@@ -8,7 +8,8 @@ import BarcodeSVG from './components/BarcodeSVG';
 import { 
   ArrowLeft, Camera, Search, Settings, Key, User, 
   ShieldCheck, Check, Info, Heart, AlertCircle, Zap, 
-  Activity, Lock, Terminal, Printer, Edit3, Loader2, Cpu
+  Activity, Lock, Terminal, Printer, Edit3, Loader2, Cpu,
+  FileCode, Database
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -28,8 +29,8 @@ const App: React.FC = () => {
     DCA: 'C', DCB: 'NONE', DCD: 'NONE', DBA: '01012030', DCS: '', DAC: '', DAD: '',
     DBD: '01012020', DBB: '01011990', DBC: '1', DAY: 'BRO', DAU: '5-09',
     DAG: '', DAI: '', DAJ: '', DAK: '', DAQ: '', DCF: '', DCG: 'USA', 
-    DAW: '175', DAZ: 'BRO', DCU: '', DDA: 'F', DDK: '1',
-    DDE: 'N', DDF: 'N', DDG: 'N'
+    DAW: '175', DAZ: 'BRO', DCU: '', DDA: 'F', DDK: '1', DDB: '01012020',
+    DDE: 'N', DDF: 'N', DDG: 'N', DDD: '0', DDL: '0'
   });
 
   useEffect(() => {
@@ -69,7 +70,7 @@ const App: React.FC = () => {
       }
       setStep('FORM');
     } catch (err: any) {
-      alert(`AI Scan Failed: ${err.message || "Unknown error"}`);
+      alert(`AI Extraction Error: ${err.message || "Link failure"}`);
     } finally {
       setIsScanning(false);
     }
@@ -88,13 +89,13 @@ const App: React.FC = () => {
             <div className="bg-sky-500 p-1.5 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.5)]">
               <Zap size={18} className="text-white fill-white" />
             </div>
-            <h1 className="text-base font-black tracking-tight leading-tight">AAMVA <span className="text-sky-500">2020 PRO</span></h1>
+            <h1 className="text-base font-black tracking-tight leading-tight uppercase">AAMVA <span className="text-sky-500">2020 Runtime</span></h1>
           </div>
         </div>
         <div className="flex items-center gap-3">
            <div className="hidden sm:flex items-center gap-3 px-4 py-1.5 bg-slate-950/50 border border-white/5 rounded-full backdrop-blur-sm">
               <Activity size={12} className="text-emerald-500" />
-              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">CVP Readiness</span>
+              <span className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Kernel Active</span>
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
            </div>
            <button onClick={() => setIsSettingsOpen(true)} className="p-2 hover:bg-white/10 rounded-full text-slate-400 transition-colors"><Settings size={20} /></button>
@@ -106,10 +107,10 @@ const App: React.FC = () => {
           <div className="max-w-4xl mx-auto space-y-12 py-10">
             <div className="text-center space-y-6">
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-[0.1em]">
-                <ShieldCheck size={14}/> AAMVA 2020 Vector Compliance Engine
+                <ShieldCheck size={14}/> Compliant with AAMVA Release 1.0 (2020)
               </div>
-              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent">Identity Matrix</h2>
-              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium">Генерация MRT-данных в векторном формате для исключения деградации качества при печати.</p>
+              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent">Identity Master</h2>
+              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium">Элитный инструмент генерации PDF417-матриц с прецизионной калибровкой байтового потока.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -118,10 +119,10 @@ const App: React.FC = () => {
                 <div className="bg-sky-500/10 w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 border border-sky-500/20">
                   {isScanning ? <Loader2 size={32} className="text-sky-500 animate-spin" /> : <Camera className="text-sky-500" size={32} />}
                 </div>
-                <h3 className="text-3xl font-black mb-3">AI Engine</h3>
-                <p className="text-slate-400 text-sm leading-relaxed mb-10 font-medium">Извлечение тегов с точностью до байта. Автоматическая калибровка индикаторов усечения DDE/DDF/DDG.</p>
+                <h3 className="text-3xl font-black mb-3">AI Scan Node</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-10 font-medium">Мгновенное извлечение тегов DCS/DAC/DAQ через нейронный контур. Авто-усечение по стандарту A.7.7.</p>
                 <div className="flex items-center gap-3 text-sky-400 text-xs font-black uppercase tracking-[0.2em]">
-                  {isScanning ? "Processing Byte Stream..." : "Initialize Scan"} <ArrowLeft className="rotate-180" size={16}/>
+                  {isScanning ? "Decoding byte sequence..." : "Initialize OCR"} <ArrowLeft className="rotate-180" size={16}/>
                 </div>
                 <input type="file" ref={fileInputRef} onChange={handleImageScan} className="hidden" accept="image/*" capture="environment"/>
               </div>
@@ -130,7 +131,7 @@ const App: React.FC = () => {
                 <h3 className="text-3xl font-black mb-8 flex items-center gap-3">Jurisdictions</h3>
                 <div className="relative mb-6">
                   <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                  <input placeholder="Search Template..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold outline-none focus:border-sky-500/50 transition-all shadow-inner" onChange={e => setFilterText(e.target.value)}/>
+                  <input placeholder="Search Node..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold outline-none focus:border-sky-500/50 transition-all shadow-inner" onChange={e => setFilterText(e.target.value)}/>
                 </div>
                 <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[160px] pr-2 custom-scrollbar">
                   {JURISDICTIONS.filter(j => j.name.toLowerCase().includes(filterText.toLowerCase())).map(j => (
@@ -155,7 +156,7 @@ const App: React.FC = () => {
                     <h3 className="text-4xl font-black tracking-tight flex items-center gap-3">{selectedJurisdiction?.name}</h3>
                     <div className="flex items-center gap-3 mt-2">
                        <span className="bg-emerald-500 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider">AAMVA 2020 Standard</span>
-                       <span className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Regional Format Active</span>
+                       <span className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">Matrix v.10</span>
                     </div>
                   </div>
                 </div>
@@ -163,6 +164,10 @@ const App: React.FC = () => {
                   <button onClick={() => setFormData({...formData, DDK: formData.DDK === '1' ? '0' : '1'})} className={`p-4 rounded-[1.25rem] flex flex-col items-center gap-1.5 transition-all border shadow-lg ${formData.DDK === '1' ? 'bg-rose-500 border-rose-400 text-white' : 'bg-slate-800/40 border-white/5 text-slate-500'}`}>
                     <span className="text-[7px] font-black uppercase">Organ Donor</span>
                     <Heart size={22} fill={formData.DDK === '1' ? 'currentColor' : 'none'}/>
+                  </button>
+                  <button onClick={() => setFormData({...formData, DDA: formData.DDA === 'F' ? 'N' : 'F'})} className={`p-4 rounded-[1.25rem] flex flex-col items-center gap-1.5 transition-all border shadow-lg ${formData.DDA === 'F' ? 'bg-amber-500 border-amber-400 text-white' : 'bg-slate-800/40 border-white/5 text-slate-500'}`}>
+                    <span className="text-[7px] font-black uppercase">REAL ID</span>
+                    <ShieldCheck size={22} />
                   </button>
                 </div>
               </div>
@@ -176,14 +181,14 @@ const App: React.FC = () => {
                 ].map(f => (
                   <div key={f.tag} className="space-y-2.5">
                     <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">{f.label} <span className="text-sky-500/40">{f.tag}</span></label>
-                    <input value={formData[f.tag as keyof DLFormData]} onChange={e => setFormData({...formData, [f.tag]: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 transition-all shadow-inner placeholder:text-slate-800" />
+                    <input value={formData[f.tag as keyof DLFormData]} onChange={e => setFormData({...formData, [f.tag]: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 transition-all shadow-inner" />
                   </div>
                 ))}
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2.5">
-                  <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">DL Number <span>DAQ</span></label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">DL/ID Number <span>DAQ</span></label>
                   <input value={formData.DAQ} onChange={e => setFormData({...formData, DAQ: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-black text-sky-400 tracking-widest outline-none focus:border-sky-500/50" />
                 </div>
                 <div className="space-y-2.5">
@@ -196,8 +201,23 @@ const App: React.FC = () => {
                 </div>
               </div>
 
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                 <div className="space-y-2.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">Address <span>DAG</span></label>
+                    <input value={formData.DAG} onChange={e => setFormData({...formData, DAG: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" />
+                 </div>
+                 <div className="space-y-2.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">City <span>DAI</span></label>
+                    <input value={formData.DAI} onChange={e => setFormData({...formData, DAI: e.target.value.toUpperCase()})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" />
+                 </div>
+                 <div className="space-y-2.5">
+                    <label className="text-[10px] font-black text-slate-500 uppercase flex justify-between tracking-widest px-1">Revision Date <span>DDB</span></label>
+                    <input value={formData.DDB} placeholder="MMDDCCYY" onChange={e => setFormData({...formData, DDB: e.target.value.replace(/\D/g, '')})} className="w-full bg-slate-950/50 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50" maxLength={8} />
+                 </div>
+              </div>
+
               <button onClick={() => setStep('RESULT')} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.3)] active:scale-[0.98] flex items-center justify-center gap-4 group">
-                <Lock className="group-hover:rotate-12 transition-transform" size={24} /> GENERATE VECTOR PAYLOAD
+                <FileCode className="group-hover:rotate-12 transition-transform" size={24} /> BUILD VECTOR PAYLOAD
               </button>
             </div>
 
@@ -228,16 +248,22 @@ const App: React.FC = () => {
 
               <div className="bg-sky-500/5 rounded-[2.5rem] p-8 border border-sky-500/10 space-y-4">
                 <button onClick={() => setShowTechSpecs(!showTechSpecs)} className="w-full text-[10px] font-black text-sky-400 uppercase tracking-widest flex items-center justify-between group">
-                  <span className="flex items-center gap-2 group-hover:text-white transition-colors"><Cpu size={16}/> TECH AUDIT [AAMVA 2020]</span>
+                  <span className="flex items-center gap-2 group-hover:text-white transition-colors"><Database size={16}/> COMPLIANCE AUDIT</span>
                   <span>{showTechSpecs ? '-' : '+'}</span>
                 </button>
                 {showTechSpecs && (
-                  <div className="text-[10px] text-slate-400 space-y-2 animate-in slide-in-from-top-2 duration-300 font-mono">
-                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">IIN:</span> {formData.IIN}</p>
-                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">HDR_SIZE:</span> 21 bytes (Strict)</p>
-                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">PDF417_ECC:</span> 5 (Mission Critical)</p>
-                    <p className="border-b border-white/5 pb-1"><span className="text-sky-500">DATE_FMT:</span> {formData.DCG === 'CAN' ? 'ISO 8601 (CCYYMMDD)' : 'AAMVA (MMDDCCYY)'}</p>
-                    <p><span className="text-sky-500">TRUNC_LOGIC:</span> A.7.7 Sequence Verified</p>
+                  <div className="text-[10px] text-slate-400 space-y-3 animate-in slide-in-from-top-2 duration-300 font-mono">
+                    <div className="p-3 bg-black/40 rounded-xl border border-white/5 space-y-2">
+                       <p className="flex justify-between border-b border-white/5 pb-1"><span>IIN:</span> <span className="text-sky-500">{formData.IIN}</span></p>
+                       <p className="flex justify-between border-b border-white/5 pb-1"><span>HDR_LEN:</span> <span className="text-sky-500">21 Bytes</span></p>
+                       <p className="flex justify-between border-b border-white/5 pb-1"><span>SUB_TYPE:</span> <span className="text-sky-500">DL (v.10)</span></p>
+                       <p className="flex justify-between"><span>ECC_LVL:</span> <span className="text-sky-500">5</span></p>
+                    </div>
+                    {validation.complianceNotes.length > 0 && (
+                      <div className="p-3 bg-rose-500/10 rounded-xl border border-rose-500/20 text-rose-300 space-y-1">
+                        {validation.complianceNotes.map((note, idx) => <p key={idx}>• {note}</p>)}
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -249,36 +275,39 @@ const App: React.FC = () => {
           <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-10 duration-700">
             <div className="flex flex-col sm:flex-row justify-between items-end gap-6 border-b border-white/5 pb-8">
               <div className="space-y-2">
-                <h2 className="text-4xl font-black tracking-tighter">Barcode Output</h2>
+                <h2 className="text-4xl font-black tracking-tighter italic">Barcode Master Output</h2>
                 <div className="flex items-center gap-3">
-                  <span className="px-2 py-0.5 bg-sky-500/10 text-sky-400 rounded-md text-[9px] font-black uppercase tracking-wider border border-sky-500/20">Vector Matrix</span>
+                  <span className="px-3 py-1 bg-sky-500/10 text-sky-400 rounded-lg text-[10px] font-black uppercase tracking-wider border border-sky-500/20 shadow-lg">Vector Engine v1.0</span>
                 </div>
               </div>
-              <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-white/5">
-                <Edit3 size={16} /> Edit Data
+              <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border border-white/5 shadow-xl">
+                <Edit3 size={18} /> Modify Stream
               </button>
             </div>
 
-            <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-2xl border-4 border-slate-200 print:shadow-none print:border-none">
-              <div className="text-center space-y-2">
-                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900">AAMVA PDF417</h3>
-                <div className="flex items-center justify-center gap-3">
-                   <span className="bg-slate-100 px-3 py-1 rounded-full text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">ISO/IEC 15438:2020</span>
+            <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.5)] border-4 border-slate-200 print:shadow-none print:border-none">
+              <div className="text-center space-y-3">
+                <h3 className="text-6xl font-black tracking-tighter uppercase italic text-slate-900">AAMVA PDF417</h3>
+                <div className="flex items-center justify-center gap-4">
+                   <span className="bg-slate-100 px-4 py-1.5 rounded-full text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">ISO/IEC 15438:2020 Compliant</span>
                 </div>
               </div>
               
-              <div className="w-full max-w-2xl overflow-hidden rounded-2xl">
+              <div className="w-full max-w-2xl overflow-hidden rounded-[2rem] shadow-2xl border-2 border-slate-100 p-4 bg-white">
                 <BarcodeSVG data={generatedString} />
               </div>
               
-              <button onClick={() => window.print()} className="w-full max-w-md bg-slate-950 text-white py-5 rounded-[1.75rem] font-black text-lg hover:bg-slate-800 hover:-translate-y-1 transition-all shadow-xl active:translate-y-0 flex items-center justify-center gap-3">
-                <Printer size={24} /> PRINT VECTOR MASTER
+              <button onClick={() => window.print()} className="w-full max-w-md bg-slate-950 text-white py-6 rounded-[2rem] font-black text-xl hover:bg-slate-800 hover:-translate-y-1 transition-all shadow-[0_20px_50px_rgba(0,0,0,0.3)] active:translate-y-0 flex items-center justify-center gap-4">
+                <Printer size={28} /> PRINT VECTOR MASTER
               </button>
             </div>
 
-            <div className="bg-slate-900/50 border border-white/5 p-8 rounded-[3rem] space-y-6 backdrop-blur-md">
-               <h4 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] flex items-center gap-2"><Terminal size={14} /> Signed Payload</h4>
-               <div className="bg-slate-950 p-6 rounded-2xl font-mono text-[10px] break-all leading-relaxed text-sky-500/80 border border-white/5 opacity-80 select-all custom-scrollbar max-h-[150px] overflow-y-auto shadow-inner">
+            <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3rem] space-y-6 backdrop-blur-md shadow-2xl">
+               <div className="flex justify-between items-center">
+                  <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] flex items-center gap-3"><Terminal size={16} /> Encoded Bitstream</h4>
+                  <span className="text-[9px] font-bold text-sky-500/50">{generatedString.length} Bytes</span>
+               </div>
+               <div className="bg-slate-950 p-8 rounded-3xl font-mono text-[11px] break-all leading-relaxed text-sky-400/80 border border-white/5 shadow-inner select-all custom-scrollbar max-h-[180px] overflow-y-auto">
                  {generatedString}
                </div>
             </div>
@@ -287,21 +316,22 @@ const App: React.FC = () => {
       </main>
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-2xl flex items-center justify-center p-4">
-          <div className="bg-slate-900 w-full max-w-md rounded-[3rem] p-10 border border-white/10 shadow-2xl space-y-8 animate-in zoom-in-95 duration-300">
-            <div className="flex items-center gap-5">
-               <div className="p-4 bg-amber-500/10 rounded-2xl border border-amber-500/20 shadow-inner"><Key className="text-amber-500" size={32} /></div>
+        <div className="fixed inset-0 z-[100] bg-slate-950/95 backdrop-blur-3xl flex items-center justify-center p-4">
+          <div className="bg-slate-900 w-full max-w-md rounded-[3rem] p-12 border border-white/10 shadow-[0_50px_100px_-20px_rgba(14,165,233,0.3)] space-y-10 animate-in zoom-in-95 duration-300">
+            <div className="flex items-center gap-6">
+               <div className="p-5 bg-amber-500/10 rounded-[1.5rem] border border-amber-500/20 shadow-inner"><Key className="text-amber-500" size={36} /></div>
                <div>
-                  <h3 className="text-2xl font-black tracking-tight">AI Access</h3>
-                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.2em] mt-1">Matrix Gateway Node</p>
+                  <h3 className="text-3xl font-black tracking-tight">AI Access</h3>
+                  <p className="text-slate-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1">Matrix Gateway Node</p>
                </div>
             </div>
-            <div className="space-y-5">
-               <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Matrix API Key..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl p-5 text-white font-mono outline-none focus:border-sky-500/50 transition-all text-sm" />
+            <div className="space-y-6">
+               <input type="password" value={apiKey} onChange={e => setApiKey(e.target.value)} placeholder="Enter Matrix API Key..." className="w-full bg-slate-950/80 border border-white/5 rounded-2xl p-6 text-white font-mono outline-none focus:border-sky-500/50 transition-all text-sm shadow-inner" />
+               <p className="text-[10px] text-slate-500 font-medium px-2 italic text-center">Your key is stored locally to initialize the neural OCR extraction module.</p>
             </div>
             <div className="flex gap-4">
-              <button onClick={() => setIsSettingsOpen(false)} className="flex-1 bg-slate-800 text-slate-400 py-4 rounded-2xl font-black text-xs uppercase tracking-widest">Cancel</button>
-              <button onClick={() => { localStorage.setItem('gemini_api_key', apiKey); setIsSettingsOpen(false); }} className="flex-1 bg-sky-600 hover:bg-sky-500 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg active:scale-95">Save Update</button>
+              <button onClick={() => setIsSettingsOpen(false)} className="flex-1 bg-slate-800 text-slate-400 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-colors hover:bg-slate-700">Cancel</button>
+              <button onClick={() => { localStorage.setItem('gemini_api_key', apiKey); setIsSettingsOpen(false); }} className="flex-1 bg-sky-600 hover:bg-sky-500 py-5 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all shadow-xl active:scale-95">Save Changes</button>
             </div>
           </div>
         </div>
@@ -312,7 +342,7 @@ const App: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         @media print {
-          header, button, footer { display: none !important; }
+          header, button, footer, .lg:col-span-4 { display: none !important; }
           body { background: white !important; }
           main { padding: 0 !important; max-width: none !important; }
           .bg-white { box-shadow: none !important; border: none !important; padding: 0 !important; }
