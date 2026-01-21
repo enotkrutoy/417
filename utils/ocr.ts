@@ -51,11 +51,9 @@ export const scanDLWithGemini = async (
   base64: string, 
   onRetry?: (attempt: number) => void
 ): Promise<Record<string, string>> => {
-  // Use the API key exclusively from environment variables
   const apiKey = process.env.API_KEY;
   if (!apiKey) throw new Error("Системный API ключ не обнаружен.");
   
-  // Initialize AI client inside the function context
   const ai = new GoogleGenAI({ apiKey });
   const maxRetries = 1;
 
@@ -63,7 +61,6 @@ export const scanDLWithGemini = async (
     try {
       if (attempt > 0 && onRetry) onRetry(attempt);
 
-      // Using gemini-3-flash-preview for vision extraction tasks
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview', 
         contents: [
@@ -77,6 +74,8 @@ export const scanDLWithGemini = async (
               - Map Sex (DBC) to numeric: "1" (Male), "2" (Female), "9" (Unknown).
               - Extract the country identification (DCG) correctly (USA or CAN).
               - Extract the state code (DAJ) as 2 characters.
+              - Extract ID number (DAQ), Family Name (DCS), First Name (DAC).
+              - Height (DAU) as "5-09" or "175 cm".
               - Output JSON only matching the provided schema.` }
             ]
           }
@@ -99,26 +98,28 @@ export const scanDLWithGemini = async (
               DAK: { type: Type.STRING, description: "Zip Code" },
               DAU: { type: Type.STRING, description: "Height" },
               DAY: { type: Type.STRING, description: "Eye Color" },
-              DBC: { type: Type.STRING, description: "Sex" },
-              DCG: { type: Type.STRING, description: "Country" }
+              DBC: { type: Type.STRING, description: "Sex (1/2/9)" },
+              DCG: { type: Type.STRING, description: "Country (USA/CAN)" },
+              DCF: { type: Type.STRING, description: "Document Discriminator" }
             }
           }
         },
       });
 
-      // Extract text content directly from response.text property
       const text = response.text;
-      if (!text) throw new Error("Received empty response from the vision model.");
+      if (!text) throw new Error("Received empty response from neural link.");
       
-      return JSON.parse(text);
+      const parsed = JSON.parse(text);
+      const result: Record<string, string> = {};
+      Object.entries(parsed).forEach(([k, v]) => {
+        if (v !== null && v !== undefined) result[k] = String(v).toUpperCase().trim();
+      });
+      return result;
     } catch (e) {
-      console.error(`Extraction attempt ${attempt} failed:`, e);
+      console.error(`Neural extraction attempt ${attempt} failed:`, e);
       if (attempt === maxRetries) throw e;
-      // Exponential backoff strategy
-      await sleep(1500 * (attempt + 1));
+      await sleep(2000);
     }
   }
-  
-  // Ensure the function returns or throws in all execution paths
-  throw new Error("Data extraction failed after multiple attempts.");
+  throw new Error("Neural link extraction failed.");
 };

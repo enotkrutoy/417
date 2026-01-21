@@ -1,9 +1,9 @@
 
 import { DLFormData } from '../types';
 
-const LF = "\x0A";
-const RS = "\x1E";
-const CR = "\x0D";
+const LF = "\x0A"; // Data Element Separator
+const RS = "\x1E"; // Record Separator
+const CR = "\x0D"; // Segment Terminator
 
 export const truncateAAMVA = (name: string, limit: number): { text: string; truncated: 'T' | 'N' } => {
   const current = (name || "").toUpperCase().trim();
@@ -13,7 +13,7 @@ export const truncateAAMVA = (name: string, limit: number): { text: string; trun
 
 /**
  * AAMVA 2020:
- * Dates for USA: MMDDYYYY
+ * Dates for USA: MMDDYYYY (MMDDCCYY)
  * Dates for Canada: YYYYMMDD (CCYYMMDD)
  */
 const formatToAAMVADate = (dateStr: string, country: string = 'USA'): string => {
@@ -22,6 +22,7 @@ const formatToAAMVADate = (dateStr: string, country: string = 'USA'): string => 
   
   // If input is YYYYMMDD (typical ISO/Gemini output), convert to MMDDYYYY for US
   if (country === 'USA') {
+    // Check if the first 4 digits look like a year (e.g., 19xx or 20xx)
     if (parseInt(clean.substring(0, 4)) > 1300) {
       const y = clean.substring(0, 4);
       const m = clean.substring(4, 6);
@@ -29,7 +30,7 @@ const formatToAAMVADate = (dateStr: string, country: string = 'USA'): string => 
       return `${m}${d}${y}`;
     }
   }
-  return clean; // Default for Canada or already correct
+  return clean; // Default for Canada or already correct format
 };
 
 export const generateAAMVAString = (data: DLFormData): string => {
@@ -41,14 +42,21 @@ export const generateAAMVAString = (data: DLFormData): string => {
     let final = (val || "").toUpperCase().trim();
     if (!final && mandatory) final = "NONE";
     if (final && final !== 'NONE') {
-      // Specific padding for Zip Code (DAK) to satisfy F11ANS (11 chars)
-      if (tag === 'DAK') final = final.padEnd(11, ' ');
+      // Padding for fixed length fields (Annex D.12.5.1/D.12.5.2)
+      if (tag === 'DAK') final = final.padEnd(11, ' '); // F11
+      if (tag === 'DAJ') final = final.substring(0, 2); // F2A
+      if (tag === 'DBC') {
+        // Map common inputs to AAMVA numeric codes (1=M, 2=F, 9=X)
+        if (final.startsWith('M')) final = '1';
+        else if (final.startsWith('F')) final = '2';
+        else if (final === 'X' || final.startsWith('U')) final = '9';
+        else if (!['1', '2', '9'].includes(final)) final = '9';
+      }
       segments.push(`${tag}${final}`);
     }
   };
 
   // Annex D.3 - Mandatory Elements
-  // Elements DCA, DCB, DCD are specific to Driver Licenses
   if (!isID) {
     add("DCA", data.DCA || "C");
     add("DCB", data.DCB);
@@ -61,21 +69,13 @@ export const generateAAMVAString = (data: DLFormData): string => {
   add("DAD", truncateAAMVA(data.DAD, 40).text);
   add("DBD", formatToAAMVADate(data.DBD, country));
   add("DBB", formatToAAMVADate(data.DBB, country));
-  
-  // Sex (DBC): Ensure numeric per standard (1=M, 2=F, 9=Unknown)
-  let sex = data.DBC;
-  if (sex === 'M' || sex === 'MALE') sex = '1';
-  else if (sex === 'F' || sex === 'FEMALE') sex = '2';
-  else if (!['1', '2', '9'].includes(sex)) sex = '9';
-  add("DBC", sex);
-
   add("DAY", data.DAY);
   
-  // Height (DAU): Format per Annex D example "073 in"
-  let hVal = data.DAU.replace(/\D/g, '');
-  if (hVal) {
-    const unit = data.DAU.toUpperCase().includes('CM') ? 'cm' : 'in';
-    add("DAU", `${hVal.padStart(3, '0')} ${unit}`);
+  // Height (DAU): Format per Annex D example "070 in" or "175 cm"
+  let hRaw = data.DAU.replace(/\D/g, '');
+  if (hRaw) {
+    const unit = data.DAU.toLowerCase().includes('cm') ? 'cm' : 'in';
+    add("DAU", `${hRaw.padStart(3, '0')} ${unit}`);
   } else {
     add("DAU", `000 ${country === 'CAN' ? 'cm' : 'in'}`);
   }
@@ -88,7 +88,7 @@ export const generateAAMVAString = (data: DLFormData): string => {
   add("DCF", data.DCF);
   add("DCG", country);
   
-  // Truncation indicators (DDE, DDF, DDG) - Mandatory in 2020
+  // Truncation indicators (DDE, DDF, DDG)
   add("DDE", truncateAAMVA(data.DCS, 40).truncated);
   add("DDF", truncateAAMVA(data.DAC, 40).truncated);
   add("DDG", truncateAAMVA(data.DAD, 40).truncated);
@@ -106,16 +106,23 @@ export const generateAAMVAString = (data: DLFormData): string => {
     }
   });
 
-  const subfileContent = "DL" + segments.join(LF) + CR;
+  // Construction of Subfile Data: DL + segments terminated by LF/CR
+  let subfileData = "DL";
+  for (let i = 0; i < segments.length; i++) {
+    // Every element is terminated by LF (Data Element Separator), 
+    // but the very last element in the subfile must be terminated by CR (Segment Terminator).
+    const term = (i === segments.length - 1) ? CR : LF;
+    subfileData += segments[i] + term;
+  }
+
   const iin = (data.IIN || "636000").substring(0, 6).padEnd(6, '0');
   
   // Header ANSI 15434 (21 bytes)
   const header = `@${LF}${RS}${CR}ANSI ${iin}${data.Version.padStart(2, '0')}${data.JurisdictionVersion.padStart(2, '0')}01`; 
   
-  // Designator: Type(2) + Offset(4) + Length(4) = 10 bytes
-  // Header(21) + Designator(10) = 31 offset
-  const offset = 31;
-  const designator = "DL" + offset.toString().padStart(4, '0') + subfileContent.length.toString().padStart(4, '0');
+  // Designator: SubfileType(2) + Offset(4) + Length(4) = 10 bytes
+  const offset = 21 + 10; // Header + 1 Designator
+  const designator = "DL" + offset.toString().padStart(4, '0') + subfileData.length.toString().padStart(4, '0');
 
-  return header + designator + subfileContent;
+  return header + designator + subfileData;
 };
