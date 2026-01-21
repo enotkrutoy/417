@@ -1,3 +1,4 @@
+
 import { DLFormData, ValidationField, ValidationReport } from '../types';
 
 const CRITICAL_TAGS = ['DAQ', 'DCS', 'DAC', 'DBB', 'DBA', 'DCG', 'DAJ'];
@@ -9,32 +10,29 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
   let earnedWeight = 0;
   let totalPossibleWeight = 0;
 
-  // 1. Structural Checks (Weight: 2.0 each)
-  const structuralChecks = [
-    { id: 'HDR', desc: 'Header Preamble', valid: raw.startsWith("@\x0A\x1E\x0DANSI "), weight: 2 },
-    { id: 'VER', desc: 'AAMVA Version 10', valid: raw.substring(15, 17) === "10", weight: 2 },
-    { id: 'OFF', desc: 'Designator Offset Integrity', valid: false, weight: 2 }
-  ];
+  // 1. Structural Checks
+  const hasHeader = raw.startsWith("@\x0A\x1E\x0DANSI ");
+  const hasVersion10 = raw.includes("100001") || raw.substring(15, 17) === "10";
+  
+  if (!hasHeader) complianceNotes.push("Invalid ANSI Header Preamble.");
+  if (!hasVersion10) complianceNotes.push("Standard version mismatch (Expected 2020/V10).");
 
-  const entries = parseInt(raw.substring(19, 21), 10);
-  const expectedOffset = 21 + (entries * 10);
-  const actualOffset = parseInt(raw.substring(23, 27), 10);
-  structuralChecks[2].valid = actualOffset === expectedOffset;
+  earnedWeight += (hasHeader ? 5 : 0) + (hasVersion10 ? 5 : 0);
+  totalPossibleWeight += 10;
 
-  structuralChecks.forEach(c => {
-    totalPossibleWeight += c.weight;
-    if (c.valid) earnedWeight += c.weight;
-    else complianceNotes.push(`${c.desc} violation.`);
-  });
-
-  // 2. Field Validation with Weights
+  // 2. Field Extraction & Validation
+  // Разделяем по LF для проверки наличия тегов в структуре
+  const lines = raw.split(/\x0A/);
+  
   const allTags = [...CRITICAL_TAGS, ...MANDATORY_TAGS];
   allTags.forEach(tag => {
     const isCritical = CRITICAL_TAGS.includes(tag);
-    const weight = isCritical ? 1.5 : 0.8;
+    const weight = isCritical ? 2 : 1;
     totalPossibleWeight += weight;
 
-    const exists = raw.includes(tag);
+    // Ищем тег в начале любой строки (после разделителя LF)
+    const exists = lines.some(line => line.startsWith(tag));
+    
     if (exists) {
       earnedWeight += weight;
     } else {
@@ -44,20 +42,24 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
     fields.push({
       elementId: tag,
       description: isCritical ? `CRITICAL: ${tag}` : `Mandatory: ${tag}`,
-      formValue: formData[tag as keyof DLFormData] || 'NULL',
-      scannedValue: exists ? 'FOUND' : 'MISSING',
+      formValue: formData[tag] || 'EMPTY',
+      scannedValue: exists ? 'PRESENT' : 'MISSING',
       status: exists ? 'MATCH' : (isCritical ? 'CRITICAL_INVALID' : 'MISSING_IN_SCAN')
     });
   });
 
-  // 3. Size Constraints (ISO 15438)
-  if (raw.length > 2000) complianceNotes.push("Payload Alert: Bitstream exceeds 2000 octets. Some legacy scanners may fail.");
+  // Score calculation
+  const overallScore = Math.min(100, Math.round((earnedWeight / totalPossibleWeight) * 100));
 
   return {
-    isHeaderValid: structuralChecks[0].valid && structuralChecks[1].valid,
+    isHeaderValid: hasHeader && hasVersion10,
     rawString: raw,
-    fields: fields.sort((a, b) => (a.status === 'CRITICAL_INVALID' ? -1 : 1)),
-    overallScore: Math.round((earnedWeight / totalPossibleWeight) * 100),
+    fields: fields.sort((a, b) => {
+      if (a.status === 'CRITICAL_INVALID') return -1;
+      if (b.status === 'CRITICAL_INVALID') return 1;
+      return 0;
+    }),
+    overallScore,
     complianceNotes
   };
 };

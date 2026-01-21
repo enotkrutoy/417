@@ -1,6 +1,9 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { Jurisdiction } from '../types';
 import { JURISDICTIONS } from '../constants';
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 export const preprocessImage = (file: File): Promise<string> => {
   return new Promise((resolve) => {
@@ -10,7 +13,7 @@ export const preprocessImage = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const MAX_DIM = 1600; // Increased resolution for better tag detection
+        const MAX_DIM = 1600; // Оптимально для Gemini Vision
         let w = img.width, h = img.height;
         if (w > MAX_DIM || h > MAX_DIM) {
           const r = Math.min(MAX_DIM/w, MAX_DIM/h);
@@ -22,7 +25,7 @@ export const preprocessImage = (file: File): Promise<string> => {
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, w, h);
         }
-        resolve(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
+        resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
       };
       img.src = e.target?.result as string;
     };
@@ -30,69 +33,74 @@ export const preprocessImage = (file: File): Promise<string> => {
   });
 };
 
-export const scanDLWithGemini = async (base64: string, customKey?: string): Promise<Record<string, string>> => {
-  // Use user-provided key or fall back to system environment key as per guidelines
+export const scanDLWithGemini = async (
+  base64: string, 
+  customKey?: string, 
+  onRetry?: (attempt: number) => void
+): Promise<Record<string, string>> => {
   const apiKey = customKey || process.env.API_KEY || "";
-  const ai = new GoogleGenAI({ apiKey });
+  if (!apiKey) throw new Error("API Key Missing");
   
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview', 
-    contents: {
-      parts: [
-        { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-        { text: `Extract AAMVA 2020 Data Tags from this Identity Document. 
-        CRITICAL: Search for 'Audit Number', 'DD', or 'Discriminator' for the DCF tag. 
-        If a field is missing, return "unavl". If it's a person's name part they likely don't have, use "NONE".
-        Return strictly JSON matching this schema.` }
-      ]
-    },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          DCS: { type: Type.STRING, description: "Last Name" },
-          DAC: { type: Type.STRING, description: "First Name" },
-          DAD: { type: Type.STRING, description: "Middle Name or NONE" },
-          DCU: { type: Type.STRING, description: "Suffix or NONE" },
-          DAQ: { type: Type.STRING, description: "ID/License Number" },
-          DCF: { type: Type.STRING, description: "Document Discriminator / Audit Number" },
-          DBB: { type: Type.STRING, description: "DOB (MMDDYYYY or YYYYMMDD)" },
-          DBA: { type: Type.STRING, description: "Expiry Date" },
-          DBD: { type: Type.STRING, description: "Issue Date" },
-          DAJ: { type: Type.STRING, description: "State Code" },
-          DCG: { type: Type.STRING, description: "Country (USA/CAN)" },
-          DDA: { type: Type.STRING, description: "Compliance F/N" },
-          DDB: { type: Type.STRING, description: "Revision Date" },
-          DDK: { type: Type.STRING, description: "Organ Donor 1/0" },
-          DAU: { type: Type.STRING, description: "Height" },
-          DAW: { type: Type.STRING, description: "Weight" },
-          DAY: { type: Type.STRING, description: "Eye Color (3-char)" },
-          DAZ: { type: Type.STRING, description: "Hair Color (3-char)" },
-          DAG: { type: Type.STRING, description: "Address line 1" },
-          DAI: { type: Type.STRING, description: "City" },
-          DAK: { type: Type.STRING, description: "Zip/Postal Code" }
-        }
-      }
-    }
-  });
+  const ai = new GoogleGenAI({ apiKey });
+  const maxRetries = 2;
 
-  try {
-    const raw = JSON.parse(response.text || "{}");
-    const cleaned: Record<string, string> = {};
-    Object.keys(raw).forEach(key => {
-      let val = String(raw[key] || "").toUpperCase().trim();
-      if (['DBA', 'DBB', 'DBD', 'DAW', 'DDB'].includes(key)) {
-        val = val.replace(/\D/g, '');
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const response = await ai.models.generateContent({
+        model: 'gemini-3-flash-preview', 
+        contents: [
+          {
+            parts: [
+              { inlineData: { mimeType: 'image/jpeg', data: base64 } },
+              { text: `Extract Driver License data according to AAMVA 2020. 
+              Output ONLY JSON. Fields: DCS (Last), DAC (First), DAD (Middle), DAQ (ID#), 
+              DBB (DOB YYYYMMDD), DBA (Expiry YYYYMMDD), DBD (Issue YYYYMMDD), 
+              DAJ (State Code), DAG (Address), DAI (City), DAK (Zip), DCF (Audit/DD), 
+              DAU (Height), DAY (Eyes), DDK (Donor 1/0), DDA (RealID F/N), DDL (Veteran 1/0).` }
+            ]
+          }
+        ],
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              DCS: { type: Type.STRING }, DAC: { type: Type.STRING }, DAD: { type: Type.STRING },
+              DAQ: { type: Type.STRING }, DBB: { type: Type.STRING }, DBA: { type: Type.STRING },
+              DBD: { type: Type.STRING }, DAJ: { type: Type.STRING }, DAG: { type: Type.STRING },
+              DAI: { type: Type.STRING }, DAK: { type: Type.STRING }, DCF: { type: Type.STRING },
+              DAU: { type: Type.STRING }, DAY: { type: Type.STRING }, DDK: { type: Type.STRING },
+              DDA: { type: Type.STRING }, DDL: { type: Type.STRING }
+            }
+          }
+        }
+      });
+
+      const text = response.text;
+      if (!text) throw new Error("Empty response from Vision Node");
+      
+      const data = JSON.parse(text);
+      const result: Record<string, string> = {};
+      
+      Object.entries(data).forEach(([k, v]) => {
+        if (v) result[k] = String(v).toUpperCase().trim();
+      });
+      
+      return result;
+
+    } catch (e: any) {
+      if (attempt < maxRetries) {
+        onRetry?.(attempt + 1);
+        await sleep(2000);
+        continue;
       }
-      cleaned[key] = val === "UNAVL" ? "" : val;
-    });
-    return cleaned;
-  } catch (e) { 
-    throw new Error("Neural Engine failed to de-serialize matrix. Check image clarity."); 
+      throw e;
+    }
   }
+  throw new Error("Neural Link Failed");
 };
 
 export const detectJurisdictionFromCode = (code: string): Jurisdiction | null => {
-  return JURISDICTIONS.find(j => j.code === (code || "").toUpperCase()) || null;
+  const search = (code || "").toUpperCase().trim();
+  return JURISDICTIONS.find(j => j.code === search) || null;
 };

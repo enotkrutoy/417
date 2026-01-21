@@ -13,7 +13,7 @@ export interface DLFormData {
   JurisdictionVersion: string;
   subfileType: 'DL' | 'ID';
   
-  // Mandatory Elements (AAMVA 2020 Table 1)
+  // Mandatory Elements (AAMVA 2020 Table 1/D.3)
   DCA: string; // Class
   DCB: string; // Restrictions
   DCD: string; // Endorsements
@@ -35,19 +35,39 @@ export interface DLFormData {
   DCG: string; // Country (USA/CAN)
   
   // Truncation Indicators (D.12.5.1)
-  DDE: string; // Family name truncation (T/N/U)
-  DDF: string; // First name truncation (T/N/U)
-  DDG: string; // Middle name truncation (T/N/U)
+  DDE: string; // Family name truncation
+  DDF: string; // First name truncation
+  DDG: string; // Middle name truncation
 
-  // Optional/Standardized Elements (AAMVA 2020 Table 2/4)
+  // Optional/Standardized Elements (Table D.4)
+  DAH: string; // Address Street 2
   DAZ: string; // Hair Color
-  DAW: string; // Weight (LBS/KG)
+  DCI: string; // Place of Birth
+  DCJ: string; // Audit information
+  DCK: string; // Inventory control number
+  DBN: string; // Alias Family Name
+  DBG: string; // Alias Given Name
+  DBS: string; // Alias Suffix
   DCU: string; // Name Suffix
+  DCE: string; // Weight Range (0-9)
+  DCL: string; // Race / Ethnicity
+  DCM: string; // Standard vehicle classification
+  DCN: string; // Standard endorsement code
+  DCO: string; // Standard restriction code
+  DCP: string; // Vehicle classification description
+  DCQ: string; // Endorsement description
+  DCR: string; // Restriction description
   DDA: string; // Compliance Type (F/N)
   DDB: string; // Card Revision Date
+  DDC: string; // HAZMAT Expiry
+  DDD: string; // Limited Duration Indicator (1/0)
+  DAW: string; // Weight (LBS)
+  DAX: string; // Weight (KG)
+  DDH: string; // Under 18 Until
+  DDI: string; // Under 19 Until
+  DDJ: string; // Under 21 Until
   DDK: string; // Organ Donor (1/0)
   DDL: string; // Veteran Indicator (1/0)
-  DDD: string; // Limited Duration Document Indicator (1/0)
   
   [key: string]: string;
 }
