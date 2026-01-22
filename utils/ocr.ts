@@ -13,7 +13,7 @@ export const preprocessImage = (file: File): Promise<string> => {
       img.onload = () => {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const MAX_DIM = 2048; 
+        const MAX_DIM = 1600; // Optimized for Flash 2.0
         let w = img.width, h = img.height;
         if (w > MAX_DIM || h > MAX_DIM) {
           const r = Math.min(MAX_DIM/w, MAX_DIM/h);
@@ -25,7 +25,7 @@ export const preprocessImage = (file: File): Promise<string> => {
           ctx.imageSmoothingQuality = 'high';
           ctx.drawImage(img, 0, 0, w, h);
         }
-        resolve(canvas.toDataURL('image/jpeg', 0.9).split(',')[1]);
+        resolve(canvas.toDataURL('image/jpeg', 0.85).split(',')[1]);
       };
       img.src = e.target?.result as string;
     };
@@ -43,7 +43,7 @@ export const scanDLWithGemini = async (
   onRetry?: (attempt: number) => void
 ): Promise<Record<string, string>> => {
   const apiKey = process.env.API_KEY;
-  if (!apiKey) throw new Error("Системный API ключ не обнаружен.");
+  if (!apiKey) throw new Error("API_KEY missing");
   
   const ai = new GoogleGenAI({ apiKey });
   const maxRetries = 1;
@@ -52,25 +52,20 @@ export const scanDLWithGemini = async (
     try {
       if (attempt > 0 && onRetry) onRetry(attempt);
 
+      // Using gemini-2.0-flash as the most stable current generation
       const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash-lite-latest', 
-        contents: [
-          {
-            parts: [
-              { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-              { text: `Analyze Driver's License/ID. Extract AAMVA 2020 fields.
-              Rules:
-              - Dates: YYYYMMDD
-              - Sex (DBC): "1" (M), "2" (F), "9" (X/Other)
-              - Height (DAU): e.g. "5-09" or "175 cm"
-              - Country (DCG): USA or CAN
-              - State (DAJ): 2-char code
-              JSON only.` }
-            ]
-          }
-        ],
+        model: 'gemini-2.0-flash', 
+        contents: {
+          parts: [
+            { inlineData: { mimeType: 'image/jpeg', data: base64 } },
+            { text: `Extract AAMVA 2020 data. Output ONLY JSON keys. Do not include image descriptions or extra text.
+            Fields: DCS, DAC, DAD, DAQ, DBB, DBA, DBD, DAJ, DAG, DAI, DAK, DAU, DAY, DBC, DCG, DCF.
+            Format dates: YYYYMMDD. Sex: 1/2/9.` }
+          ]
+        },
         config: {
           responseMimeType: "application/json",
+          maxOutputTokens: 1024, // Prevents the 15k+ char overflow issue
           responseSchema: {
             type: Type.OBJECT,
             properties: {
@@ -96,18 +91,20 @@ export const scanDLWithGemini = async (
       });
 
       const text = response.text;
-      if (!text) throw new Error("Neural link extraction failed.");
+      if (!text) throw new Error("Empty neural response");
       
       const parsed = JSON.parse(text);
       const result: Record<string, string> = {};
       Object.entries(parsed).forEach(([k, v]) => {
-        if (v) result[k] = String(v).toUpperCase().trim();
+        // Sanitize to ASCII only to comply with ISO 8859-1 requirements
+        if (v) result[k] = String(v).replace(/[^\x00-\x7F]/g, "").toUpperCase().trim();
       });
       return result;
     } catch (e) {
+      console.warn(`Attempt ${attempt} failed, retrying...`, e);
       if (attempt === maxRetries) throw e;
-      await sleep(2000);
+      await sleep(1000);
     }
   }
-  throw new Error("Neural link failed.");
+  throw new Error("OCR Failed to stabilize");
 };
