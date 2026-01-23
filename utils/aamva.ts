@@ -19,14 +19,18 @@ export const truncateAAMVA = (name: string, limit: number): { text: string; trun
   if (current.length <= limit) return { text: current, truncated: 'N' };
 
   // Phase 1: Delete blanks adjacent to hyphens (Right to Left)
-  while (current.length > limit && (current.includes(" -") || current.includes("- "))) {
+  let changed = true;
+  while (changed && current.length > limit) {
+    changed = false;
     const lastSpaceHyphen = current.lastIndexOf(" -");
     const lastHyphenSpace = current.lastIndexOf("- ");
     const targetIdx = Math.max(lastSpaceHyphen, lastHyphenSpace);
     
-    if (targetIdx === -1) break;
-    const spaceIdx = current[targetIdx] === ' ' ? targetIdx : targetIdx + 1;
-    current = current.substring(0, spaceIdx) + current.substring(spaceIdx + 1);
+    if (targetIdx !== -1) {
+      const spaceIdx = current[targetIdx] === ' ' ? targetIdx : targetIdx + 1;
+      current = current.substring(0, spaceIdx) + current.substring(spaceIdx + 1);
+      changed = true;
+    }
   }
 
   // Phase 2: Delete apostrophes (Right to Left)
@@ -36,7 +40,7 @@ export const truncateAAMVA = (name: string, limit: number): { text: string; trun
   }
 
   // Phase 3: Delete other characters (Right to Left)
-  // Rule: Do not delete hyphen, blank, or char after hyphen/blank
+  // Rule: Preserve hyphen, blank, and the character immediately following a hyphen or blank
   if (current.length > limit) {
     let chars = current.split('');
     for (let i = chars.length - 1; i >= 0; i--) {
@@ -45,10 +49,10 @@ export const truncateAAMVA = (name: string, limit: number): { text: string; trun
       const char = chars[i];
       const prevChar = i > 0 ? chars[i - 1] : null;
       
-      // Protection logic
       const isHyphenOrBlank = char === '-' || char === ' ';
       const isProtectedByPrefix = prevChar === '-' || prevChar === ' ';
       
+      // Delete if NOT a hyphen/blank AND NOT immediately following one
       if (!isHyphenOrBlank && !isProtectedByPrefix) {
         chars.splice(i, 1);
       }
@@ -57,7 +61,7 @@ export const truncateAAMVA = (name: string, limit: number): { text: string; trun
   }
 
   return { 
-    text: current.substring(0, limit), // Final safety clip
+    text: current.substring(0, limit),
     truncated: 'T' 
   };
 };
@@ -84,9 +88,9 @@ export const generateAAMVAString = (data: DLFormData): string => {
     let final = (val || "").replace(/[^\x00-\x7F]/g, "").toUpperCase().trim();
     if (!final && mandatory) final = "NONE";
     
-    // Mandatory fields must be included even if they are 'NONE'
-    if (final && (final !== 'NONE' || mandatory)) {
-      if (tag === 'DAK') final = final.padEnd(11, ' '); 
+    // Inclusion logic: Mandatory fields must ALWAYS be present (AAMVA 2020 D.12.5.1)
+    if (final) {
+      if (tag === 'DAK') final = final.replace(/\D/g, '').padEnd(11, ' '); 
       if (tag === 'DAJ') final = final.substring(0, 2); 
       if (tag === 'DBC') {
         if (final.startsWith('M') || final === '1') final = '1';

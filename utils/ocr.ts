@@ -21,12 +21,14 @@ const AAMVA_SCHEMA = {
     DAG: { type: Type.STRING, description: "Address Line 1." },
     DAI: { type: Type.STRING, description: "City." },
     DAK: { type: Type.STRING, description: "Zip." },
-    DAU: { type: Type.STRING, description: "Height." },
-    DAY: { type: Type.STRING, description: "Eye Color." },
-    DBC: { type: Type.STRING, description: "Sex (1/2/9)." },
+    DAU: { type: Type.STRING, description: "Height (e.g., 5-09)." },
+    DAY: { type: Type.STRING, description: "Eye Color (3 chars: BRO, BLU, etc)." },
+    DBC: { type: Type.STRING, description: "Sex (1=M, 2=F, 9=X)." },
     DCG: { type: Type.STRING, description: "Country (USA/CAN)." },
-    DCF: { type: Type.STRING, description: "Discriminator." },
-    DDA: { type: Type.STRING, description: "Compliance (F/N)." }
+    DCF: { type: Type.STRING, description: "Document Discriminator." },
+    DDA: { type: Type.STRING, description: "Compliance (F/N)." },
+    DCB: { type: Type.STRING, description: "Restrictions. Set to 'NONE' if not found." },
+    DCD: { type: Type.STRING, description: "Endorsements. Set to 'NONE' if not found." }
   },
   required: ["DCS", "DAC", "DAQ", "DBB", "DAJ", "DCG"]
 };
@@ -83,11 +85,13 @@ export const scanDLWithGemini = async (
         contents: {
           parts: [
             { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-            { text: `TASK: Extract Driver License data. 
-            RULES: 
-            1. Extract the FULL legal name (DCS, DAC, DAD) even if it looks truncated on the card surface.
-            2. Follow AAMVA 2020 standards for all fields.
-            ${feedback ? `CRITICAL FEEDBACK: ${feedback}` : ''}` }
+            { text: `TASK: Extract AAMVA 2020 Driver License data. 
+            CORE RULES: 
+            1. Extract the FULL legal name (DCS, DAC, DAD). 
+            2. Mandatory fields DCB (Restrictions) and DCD (Endorsements) MUST be 'NONE' if no value is present on the card surface.
+            3. Dates must be YYYYMMDD.
+            4. State Code must be exactly 2 letters.
+            ${feedback ? `\nPREVIOUS ERROR LOGS FOR REFINEMENT:\n${feedback}` : ''}` }
           ]
         },
         config: {
@@ -98,7 +102,7 @@ export const scanDLWithGemini = async (
       });
 
       const text = response.text;
-      if (!text) throw new Error("Null response");
+      if (!text) throw new Error("Neural Link Offline");
       
       const parsed = JSON.parse(text);
       const sanitized: any = {};
@@ -109,13 +113,17 @@ export const scanDLWithGemini = async (
       const tempString = generateAAMVAString(sanitized);
       const validation = validateAAMVAStructure(tempString, sanitized);
 
-      if (validation.overallScore >= 95 || attempt === 2) return sanitized;
+      // If validation score is high or we're on the last attempt, return the data
+      if (validation.overallScore >= 98 || attempt === 2) {
+        return sanitized;
+      }
 
-      feedback = validation.complianceNotes.join("; ");
-      await sleep(1000); 
+      // Feed specific error notes back into the model for the second attempt
+      feedback = validation.complianceNotes.join("\n");
+      await sleep(800); 
     } catch (e) {
       if (attempt === 2) throw e;
-      await sleep(500);
+      await sleep(400);
     }
   }
 };

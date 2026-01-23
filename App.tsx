@@ -121,22 +121,34 @@ const App: React.FC = () => {
     }
   };
 
-  const InputField = ({ label, tag, placeholder = "", type = "text", maxLength = 100 }: { label: string, tag: string, placeholder?: string, type?: string, maxLength?: number }) => (
-    <div className="space-y-1.5 group">
-      <div className="flex justify-between items-center px-1">
-        <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest group-focus-within:text-sky-400 transition-colors italic">{label}</label>
-        <span className="text-[8px] font-mono text-slate-600 opacity-0 group-focus-within:opacity-100 transition-opacity">{tag}</span>
+  const InputField = ({ label, tag, placeholder = "", type = "text", maxLength = 100 }: { label: string, tag: string, placeholder?: string, type?: string, maxLength?: number }) => {
+    const fieldValidation = validation.fields.find(f => f.elementId === tag);
+    const hasError = fieldValidation?.status && fieldValidation.status !== 'MATCH';
+    
+    return (
+      <div className="space-y-1.5 group">
+        <div className="flex justify-between items-center px-1">
+          <label className={`text-[10px] font-black uppercase tracking-widest transition-colors italic ${hasError ? 'text-rose-400' : 'text-slate-500 group-focus-within:text-sky-400'}`}>{label}</label>
+          <span className={`text-[8px] font-mono opacity-0 group-focus-within:opacity-100 transition-opacity ${hasError ? 'text-rose-500' : 'text-slate-600'}`}>{tag}</span>
+        </div>
+        <div className="relative">
+          <input 
+            type={type}
+            value={formData[tag] || ""} 
+            placeholder={placeholder}
+            maxLength={maxLength}
+            onChange={e => setFormData({...formData, [tag]: e.target.value.toUpperCase()})} 
+            className={`w-full bg-slate-950/40 border rounded-2xl p-4 text-sm font-bold outline-none transition-all placeholder:text-slate-700 ${hasError ? 'border-rose-500/50 bg-rose-500/5 focus:bg-rose-500/10' : 'border-white/5 focus:border-sky-500/50 focus:bg-slate-950/80'}`} 
+          />
+          {hasError && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-rose-500 animate-pulse">
+              <AlertCircle size={16} />
+            </div>
+          )}
+        </div>
       </div>
-      <input 
-        type={type}
-        value={formData[tag] || ""} 
-        placeholder={placeholder}
-        maxLength={maxLength}
-        onChange={e => setFormData({...formData, [tag]: e.target.value.toUpperCase()})} 
-        className="w-full bg-slate-950/40 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 focus:bg-slate-950/80 transition-all placeholder:text-slate-700" 
-      />
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 flex flex-col font-sans selection:bg-sky-500/30">
@@ -173,7 +185,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3">
            <div className="flex items-center gap-2 px-3 py-1 bg-slate-950/50 border border-white/5 rounded-full">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider italic">Gemini 2.5 Flash Optimized</span>
+              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider italic">DSPy Compliance Optimized</span>
            </div>
         </div>
       </header>
@@ -185,7 +197,7 @@ const App: React.FC = () => {
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-widest">
                 <ShieldCheck size={14}/> AAMVA 2020 Compliance Engine
               </div>
-              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent italic">DSPy Optimizer</h2>
+              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent italic">DSPy Pipeline</h2>
               <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium italic">Интеллектуальный OCR пайплайн на базе Gemini 2.5 Flash с нейронной самокоррекцией.</p>
             </div>
             
@@ -313,7 +325,7 @@ const App: React.FC = () => {
                   <InputField label="Height" tag="DAU" placeholder="5-09 IN" />
                   <InputField label="Weight (LBS)" tag="DAW" maxLength={3} />
                   <InputField label="Issue Date" tag="DBD" placeholder="YYYYMMDD" />
-                  <InputField label="Restrictions" tag="DCB" placeholder="CORR LENSES" />
+                  <InputField label="Restrictions" tag="DCB" placeholder="NONE" />
                   <InputField label="Endorsements" tag="DCD" placeholder="NONE" />
                   <InputField label="Class" tag="DCA" placeholder="C" />
                   <div className="lg:col-span-3 border-t border-white/5 pt-6 mt-4">
