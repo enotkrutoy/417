@@ -47,14 +47,16 @@ const App: React.FC = () => {
   const generatedString = useMemo(() => generateAAMVAString(formData), [formData]);
   const validation = useMemo(() => validateAAMVAStructure(generatedString, formData), [generatedString, formData]);
 
-  // Handle document title for print filename compliance
+  // Unified document title management for print/PDF consistency
   useEffect(() => {
     if (step === 'RESULT') {
-      document.title = `${formData.DAQ || 'AAMVA_MASTER'}_${new Date().toISOString().slice(0,10)}`;
+      const safeId = (formData.DAQ || 'AAMVA').replace(/[^a-zA-Z0-9]/g, '');
+      const safeTime = compilationTime.replace(/[:\/, ]/g, '_').slice(0, 16);
+      document.title = `AAMVA_${safeId}_${safeTime}`;
     } else {
       document.title = "AAMVA Barcode Pro";
     }
-  }, [step, formData.DAQ]);
+  }, [step, formData.DAQ, compilationTime]);
 
   const handleApplyPreset = (preset: DLDataPreset) => {
     setFormData(prev => ({ ...prev, ...preset.data }));
@@ -71,7 +73,7 @@ const App: React.FC = () => {
     ];
     for (const s of steps) {
       setCompilationStatus(s);
-      await new Promise(r => setTimeout(r, 350));
+      await new Promise(r => setTimeout(r, 250));
     }
     
     const now = new Date();
@@ -433,12 +435,12 @@ const App: React.FC = () => {
             <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none">
               <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
               
-              <div className="text-center space-y-3 relative z-10">
-                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-1">
-                  <span className="flex items-center gap-3">
-                    <Layout className="text-sky-600 no-print" size={32} /> {formData.DAQ || "AAMVA_MASTER"}
+              <div className="text-center space-y-3 relative z-10 w-full">
+                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
+                  <span className="flex items-center gap-4">
+                    <Layout className="text-sky-600 no-print" size={40} /> {formData.DAQ || "AAMVA_MASTER"}
                   </span>
-                  <span className="text-[10px] font-mono font-bold text-slate-400 tracking-[0.2em] not-italic opacity-60">
+                  <span className="text-xs font-mono font-bold text-slate-400 tracking-wider not-italic opacity-70">
                     {compilationTime}
                   </span>
                 </h3>
