@@ -83,7 +83,9 @@ export const generateAAMVAString = (data: DLFormData): string => {
   const add = (tag: string, val: string | undefined, mandatory = true) => {
     let final = (val || "").replace(/[^\x00-\x7F]/g, "").toUpperCase().trim();
     if (!final && mandatory) final = "NONE";
-    if (final && final !== 'NONE') {
+    
+    // Mandatory fields must be included even if they are 'NONE'
+    if (final && (final !== 'NONE' || mandatory)) {
       if (tag === 'DAK') final = final.padEnd(11, ' '); 
       if (tag === 'DAJ') final = final.substring(0, 2); 
       if (tag === 'DBC') {
@@ -101,35 +103,35 @@ export const generateAAMVAString = (data: DLFormData): string => {
   };
 
   if (subType === 'DL') {
-    add("DCA", data.DCA || "C");
-    add("DCB", data.DCB);
-    add("DCD", data.DCD);
+    add("DCA", data.DCA || "C", true);
+    add("DCB", data.DCB, true);
+    add("DCD", data.DCD, true);
   }
 
   const truncatedDCS = truncateAAMVA(data.DCS, 40);
   const truncatedDAC = truncateAAMVA(data.DAC, 40);
   const truncatedDAD = truncateAAMVA(data.DAD, 40);
 
-  add("DBA", formatToAAMVADate(data.DBA, country));
-  add("DCS", truncatedDCS.text);
-  add("DAC", truncatedDAC.text);
-  add("DAD", truncatedDAD.text);
-  add("DBD", formatToAAMVADate(data.DBD, country));
-  add("DBB", formatToAAMVADate(data.DBB, country));
-  add("DBC", data.DBC);
-  add("DAY", data.DAY);
-  add("DAU", data.DAU);
-  add("DAG", data.DAG);
-  add("DAI", data.DAI);
-  add("DAJ", data.DAJ);
-  add("DAK", data.DAK);
-  add("DAQ", data.DAQ);
-  add("DCF", data.DCF);
-  add("DCG", country);
+  add("DBA", formatToAAMVADate(data.DBA, country), true);
+  add("DCS", truncatedDCS.text, true);
+  add("DAC", truncatedDAC.text, true);
+  add("DAD", truncatedDAD.text, true);
+  add("DBD", formatToAAMVADate(data.DBD, country), true);
+  add("DBB", formatToAAMVADate(data.DBB, country), true);
+  add("DBC", data.DBC, true);
+  add("DAY", data.DAY, true);
+  add("DAU", data.DAU, true);
+  add("DAG", data.DAG, true);
+  add("DAI", data.DAI, true);
+  add("DAJ", data.DAJ, true);
+  add("DAK", data.DAK, true);
+  add("DAQ", data.DAQ, true);
+  add("DCF", data.DCF, true);
+  add("DCG", country, true);
   
-  add("DDE", truncatedDCS.truncated);
-  add("DDF", truncatedDAC.truncated);
-  add("DDG", truncatedDAD.truncated);
+  add("DDE", truncatedDCS.truncated, false);
+  add("DDF", truncatedDAC.truncated, false);
+  add("DDG", truncatedDAD.truncated, false);
 
   const optionalTags = [
     'DAH','DAZ','DCI','DCJ','DCK','DBN','DBG','DBS','DCU','DCE','DCL',
