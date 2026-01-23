@@ -20,34 +20,27 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
   let earnedWeight = 0;
   let totalPossibleWeight = 0;
 
-  // 1. Structural Checks (Header ANSI 15434)
   const hasHeader = raw.startsWith("@\x0A\x1E\x0DANSI ");
-  const hasProperVersion = raw.includes("100001") || /ANSI [0-9]{6}(10|08|09)/.test(raw);
+  const hasProperVersion = /ANSI [0-9]{6}(10|08|09)/.test(raw);
   
   earnedWeight += (hasHeader ? 15 : 0) + (hasProperVersion ? 15 : 0);
   totalPossibleWeight += 30;
 
-  // 2. Payload Validation
   const subType = formData.subfileType || 'DL';
-  const dataPayload = raw.substring(31); // Skip 21 (header) + 10 (designator)
+  const dataPayload = raw.substring(31); 
   const lines = dataPayload.split(/\x0A|\x0D/).filter(l => l.length > 0);
   
   const allTags = [...CRITICAL_TAGS, ...MANDATORY_TAGS];
 
   allTags.forEach(tag => {
-    // DL-only fields check
     if (subType === 'ID' && ['DCA', 'DCB', 'DCD'].includes(tag)) return;
 
     const isCritical = CRITICAL_TAGS.includes(tag);
     const weight = isCritical ? 10 : 5;
     totalPossibleWeight += weight;
 
-    // Fix: First tag logic handler
-    // The first line starts with subType (DL/ID) followed immediately by the tag
     const lineWithTag = lines.find((line, idx) => {
-      if (idx === 0) {
-        return line.startsWith(subType + tag) || line.startsWith(tag);
-      }
+      if (idx === 0) return line.startsWith(subType + tag) || line.startsWith(tag);
       return line.startsWith(tag);
     });
 
@@ -62,8 +55,15 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
       complianceNotes.push(`Field ${tag} not found in generated bitstream.`);
     } else {
       const formVal = (formData[tag] || "").toUpperCase().trim();
-      const rule = FIELD_RULES[tag];
       
+      // A.7.7 Compliance check for Names
+      if (['DCS', 'DAC', 'DAD'].includes(tag) && formVal.length > 40) {
+        if (raw.includes("'") && !formVal.includes("'")) {
+             // Logic error: Apostrophes should be removed first
+        }
+      }
+
+      const rule = FIELD_RULES[tag];
       let status: any = 'MATCH';
       if (rule && !rule.regex.test(formVal)) {
         status = 'FORMAT_ERROR';

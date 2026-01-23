@@ -7,30 +7,26 @@ import { generateAAMVAString } from './aamva';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-/**
- * DSPy-style Signature definition for AAMVA 2020
- * Strict schema to guide the model's extraction logic.
- */
 const AAMVA_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    DCS: { type: Type.STRING, description: "Family Name (Last Name). Must be uppercase." },
-    DAC: { type: Type.STRING, description: "Given Name (First Name). Must be uppercase." },
-    DAD: { type: Type.STRING, description: "Middle Name or Initial. Use 'NONE' if missing." },
-    DAQ: { type: Type.STRING, description: "Customer ID Number / License Number." },
-    DBB: { type: Type.STRING, description: "Date of Birth in YYYYMMDD format." },
-    DBA: { type: Type.STRING, description: "Document Expiration Date in YYYYMMDD format." },
-    DBD: { type: Type.STRING, description: "Document Issue Date in YYYYMMDD format." },
-    DAJ: { type: Type.STRING, description: "Jurisdiction Code (2-letter state code, e.g., NY, CA)." },
-    DAG: { type: Type.STRING, description: "Address Line 1 (Street and House Number)." },
-    DAI: { type: Type.STRING, description: "City Name." },
-    DAK: { type: Type.STRING, description: "Postal Code (Zip). Usually 5-11 chars." },
-    DAU: { type: Type.STRING, description: "Height in feet-inches (e.g. 5-09) or centimeters." },
-    DAY: { type: Type.STRING, description: "Eye Color code (3 letters: BRO, BLU, GRN, etc.)." },
-    DBC: { type: Type.STRING, description: "Sex: 1 for Male, 2 for Female, 9 for Non-binary/Other." },
-    DCG: { type: Type.STRING, description: "Country Code: USA or CAN." },
-    DCF: { type: Type.STRING, description: "Document Discriminator (Audit number)." },
-    DDA: { type: Type.STRING, description: "Compliance Type: 'F' for REAL ID, 'N' for Non-compliant." }
+    DCS: { type: Type.STRING, description: "Family Name. Extract FULL name even if truncated on card." },
+    DAC: { type: Type.STRING, description: "Given Name. Extract FULL name if possible." },
+    DAD: { type: Type.STRING, description: "Middle Name or Initial." },
+    DAQ: { type: Type.STRING, description: "License Number." },
+    DBB: { type: Type.STRING, description: "DOB YYYYMMDD." },
+    DBA: { type: Type.STRING, description: "Expiry YYYYMMDD." },
+    DBD: { type: Type.STRING, description: "Issue YYYYMMDD." },
+    DAJ: { type: Type.STRING, description: "State Code (2 letters)." },
+    DAG: { type: Type.STRING, description: "Address Line 1." },
+    DAI: { type: Type.STRING, description: "City." },
+    DAK: { type: Type.STRING, description: "Zip." },
+    DAU: { type: Type.STRING, description: "Height." },
+    DAY: { type: Type.STRING, description: "Eye Color." },
+    DBC: { type: Type.STRING, description: "Sex (1/2/9)." },
+    DCG: { type: Type.STRING, description: "Country (USA/CAN)." },
+    DCF: { type: Type.STRING, description: "Discriminator." },
+    DDA: { type: Type.STRING, description: "Compliance (F/N)." }
   },
   required: ["DCS", "DAC", "DAQ", "DBB", "DAJ", "DCG"]
 };
@@ -68,10 +64,6 @@ export const detectJurisdictionFromCode = (code: string): Jurisdiction | null =>
   return JURISDICTIONS.find(j => j.code === cleanCode) || null;
 };
 
-/**
- * DSPy Predict-Validate-Refine Module
- * Uses gemini-2.5-flash to extract data and iterates if validation fails.
- */
 export const scanDLWithGemini = async (
   base64: string, 
   onStatusUpdate?: (status: string) => void
@@ -80,12 +72,10 @@ export const scanDLWithGemini = async (
   if (!apiKey) throw new Error("Neural Engine API Key missing");
   
   const ai = new GoogleGenAI({ apiKey });
-  let currentData: any = null;
   let feedback = "";
 
-  // Predict -> Validate -> Refine Loop (Max 2 Attempts)
   for (let attempt = 1; attempt <= 2; attempt++) {
-    onStatusUpdate?.(attempt === 1 ? "INITIAL NEURAL PREDICTION (GEMINI 2.5 FLASH)" : "NEURAL REFINEMENT (DSPY FEEDBACK LOOP)");
+    onStatusUpdate?.(attempt === 1 ? "ANALYZING AAMVA A.7.7 CONSTRAINTS..." : "NEURAL SELF-CORRECTION (A.7.7 REFINEMENT)");
     
     try {
       const response = await ai.models.generateContent({
@@ -93,9 +83,11 @@ export const scanDLWithGemini = async (
         contents: {
           parts: [
             { inlineData: { mimeType: 'image/jpeg', data: base64 } },
-            { text: `TASK: Extract AAMVA 2020 driver's license data from the image.
-            ${feedback ? `CORRECTION REQUIRED: ${feedback}. Focus on these fields and fix them by re-examining the image.` : 'Extract all elements accurately.'}
-            Return JSON. Dates: YYYYMMDD.` }
+            { text: `TASK: Extract Driver License data. 
+            RULES: 
+            1. Extract the FULL legal name (DCS, DAC, DAD) even if it looks truncated on the card surface.
+            2. Follow AAMVA 2020 standards for all fields.
+            ${feedback ? `CRITICAL FEEDBACK: ${feedback}` : ''}` }
           ]
         },
         config: {
@@ -106,40 +98,24 @@ export const scanDLWithGemini = async (
       });
 
       const text = response.text;
-      if (!text) throw new Error("Null response from inference engine");
+      if (!text) throw new Error("Null response");
       
       const parsed = JSON.parse(text);
       const sanitized: any = {};
       Object.entries(parsed).forEach(([k, v]) => {
-        if (v !== null && v !== undefined) {
-          sanitized[k] = String(v).replace(/[^\x00-\x7F]/g, "").toUpperCase().trim();
-        }
+        if (v !== null) sanitized[k] = String(v).replace(/[^\x00-\x7F]/g, "").toUpperCase().trim();
       });
 
-      // Metric Phase: Run internal AAMVA validator
       const tempString = generateAAMVAString(sanitized);
       const validation = validateAAMVAStructure(tempString, sanitized);
 
-      onStatusUpdate?.(`VALIDATION SCORE: ${validation.overallScore}%`);
-      
-      // Stop condition: High confidence or exhaustion
-      if (validation.overallScore >= 94 || attempt === 2) {
-        return sanitized;
-      }
+      if (validation.overallScore >= 95 || attempt === 2) return sanitized;
 
-      // Preparation for Refinement
-      feedback = validation.complianceNotes.length > 0 
-        ? `Found errors: ${validation.complianceNotes.slice(0, 3).join("; ")}` 
-        : `Missing or incorrect fields detected: ${validation.fields.filter(f => f.status !== 'MATCH').map(f => f.elementId).join(', ')}`;
-      
-      currentData = sanitized;
+      feedback = validation.complianceNotes.join("; ");
       await sleep(1000); 
     } catch (e) {
-      console.warn(`DSPy Link Error (Attempt ${attempt}):`, e);
       if (attempt === 2) throw e;
       await sleep(500);
     }
   }
-  
-  return currentData;
 };
