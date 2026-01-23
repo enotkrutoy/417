@@ -1,5 +1,5 @@
 
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { JURISDICTIONS, PRESETS } from './constants';
 import { Jurisdiction, DLFormData, DLDataPreset } from './types';
 import { generateAAMVAString } from './utils/aamva';
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compilationStatus, setCompilationStatus] = useState("");
+  const [compilationTime, setCompilationTime] = useState("");
   const [scanStatusMsg, setScanStatusMsg] = useState("");
   const [scanAttempt, setScanAttempt] = useState(0);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -46,6 +47,14 @@ const App: React.FC = () => {
   const generatedString = useMemo(() => generateAAMVAString(formData), [formData]);
   const validation = useMemo(() => validateAAMVAStructure(generatedString, formData), [generatedString, formData]);
 
+  useEffect(() => {
+    if (step === 'RESULT') {
+      document.title = `AAMVA Barcode Pro - ${formData.DAQ || 'MASTER'}`;
+    } else {
+      document.title = "AAMVA Barcode Pro";
+    }
+  }, [step, formData.DAQ]);
+
   const handleApplyPreset = (preset: DLDataPreset) => {
     setFormData(prev => ({ ...prev, ...preset.data }));
   };
@@ -63,6 +72,13 @@ const App: React.FC = () => {
       setCompilationStatus(s);
       await new Promise(r => setTimeout(r, 350));
     }
+    
+    const now = new Date();
+    setCompilationTime(now.toLocaleString('en-US', { 
+      year: '2-digit', month: 'numeric', day: 'numeric', 
+      hour: 'numeric', minute: '2-digit', hour12: true 
+    }));
+    
     setIsCompiling(false);
     setStep('RESULT');
   };
@@ -417,8 +433,13 @@ const App: React.FC = () => {
               <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
               
               <div className="text-center space-y-3 relative z-10">
-                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex items-center gap-4">
-                  <Layout className="text-sky-600 no-print" size={40} /> PDF417 MATRIX
+                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
+                  <span className="flex items-center gap-4">
+                    <Layout className="text-sky-600 no-print" size={40} /> {formData.DAQ || "AAMVA_MASTER"}
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-400 tracking-wider not-italic">
+                    {compilationTime}
+                  </span>
                 </h3>
                 <div className="flex items-center justify-center gap-3">
                   <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
