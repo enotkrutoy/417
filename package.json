@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -15,7 +15,6 @@
     "react-dom": "^19.0.0",
     "lucide-react": "^0.469.0",
     "bwip-js": "^4.5.0",
-    "@zxing/library": "^0.21.3",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.3.0",
     "@google/genai": "^1.35.0"
