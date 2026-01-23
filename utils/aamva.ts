@@ -86,11 +86,22 @@ export const generateAAMVAString = (data: DLFormData): string => {
 
   const add = (tag: string, val: string | undefined, mandatory = true) => {
     let final = (val || "").replace(/[^\x00-\x7F]/g, "").toUpperCase().trim();
-    if (!final && mandatory) final = "NONE";
     
-    // Inclusion logic: Mandatory fields must ALWAYS be present (AAMVA 2020 D.12.5.1)
+    // Strict AAMVA 2020 enforcement for mandatory fields
+    if (!final && mandatory) {
+        final = "NONE";
+    }
+    
     if (final) {
-      if (tag === 'DAK') final = final.replace(/\D/g, '').padEnd(11, ' '); 
+      if (tag === 'DAK') {
+          const digits = final.replace(/\D/g, '');
+          // AAMVA D.12.5.1: If ZIP+4 is unknown, fill with zeros to 9 digits, then pad to 11 chars
+          if (country === 'USA' && digits.length <= 5) {
+              final = digits.padEnd(9, '0').padEnd(11, ' ');
+          } else {
+              final = digits.padEnd(11, ' ');
+          }
+      }
       if (tag === 'DAJ') final = final.substring(0, 2); 
       if (tag === 'DBC') {
         if (final.startsWith('M') || final === '1') final = '1';

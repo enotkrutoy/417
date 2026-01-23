@@ -76,8 +76,9 @@ export const scanDLWithGemini = async (
   const ai = new GoogleGenAI({ apiKey });
   let feedback = "";
 
+  // SELF-CORRECTION LOOP (Neural Refinement)
   for (let attempt = 1; attempt <= 2; attempt++) {
-    onStatusUpdate?.(attempt === 1 ? "ANALYZING AAMVA A.7.7 CONSTRAINTS..." : "NEURAL SELF-CORRECTION (A.7.7 REFINEMENT)");
+    onStatusUpdate?.(attempt === 1 ? "ANALYZING AAMVA A.7.7 CONSTRAINTS..." : "NEURAL SELF-CORRECTION (REFINING DAK/NAMES)");
     
     try {
       const response = await ai.models.generateContent({
@@ -86,12 +87,12 @@ export const scanDLWithGemini = async (
           parts: [
             { inlineData: { mimeType: 'image/jpeg', data: base64 } },
             { text: `TASK: Extract AAMVA 2020 Driver License data. 
-            CORE RULES: 
-            1. Extract the FULL legal name (DCS, DAC, DAD). 
-            2. Mandatory fields DCB (Restrictions) and DCD (Endorsements) MUST be 'NONE' if no value is present on the card surface.
-            3. Dates must be YYYYMMDD.
-            4. State Code must be exactly 2 letters.
-            ${feedback ? `\nPREVIOUS ERROR LOGS FOR REFINEMENT:\n${feedback}` : ''}` }
+            RULES: 
+            1. Extract FULL names even if truncated.
+            2. Mandatory fields DCB (Restrictions) and DCD (Endorsements) MUST be 'NONE' if not visible.
+            3. DAK (Postal Code) must be clean of non-digits if possible.
+            4. Dates must be YYYYMMDD.
+            ${feedback ? `\n\nERROR FEEDBACK FROM PREVIOUS ATTEMPT:\n${feedback}` : ''}` }
           ]
         },
         config: {
@@ -113,17 +114,17 @@ export const scanDLWithGemini = async (
       const tempString = generateAAMVAString(sanitized);
       const validation = validateAAMVAStructure(tempString, sanitized);
 
-      // If validation score is high or we're on the last attempt, return the data
+      // Success metric: If score is high enough or it's the second attempt, return
       if (validation.overallScore >= 98 || attempt === 2) {
         return sanitized;
       }
 
-      // Feed specific error notes back into the model for the second attempt
+      // Generate feedback for refiner (DSPy logic)
       feedback = validation.complianceNotes.join("\n");
-      await sleep(800); 
+      await sleep(500); 
     } catch (e) {
       if (attempt === 2) throw e;
-      await sleep(400);
+      await sleep(300);
     }
   }
 };

@@ -47,9 +47,10 @@ const App: React.FC = () => {
   const generatedString = useMemo(() => generateAAMVAString(formData), [formData]);
   const validation = useMemo(() => validateAAMVAStructure(generatedString, formData), [generatedString, formData]);
 
+  // Handle document title for print filename compliance
   useEffect(() => {
     if (step === 'RESULT') {
-      document.title = `AAMVA Barcode Pro - ${formData.DAQ || 'MASTER'}`;
+      document.title = `${formData.DAQ || 'AAMVA_MASTER'}_${new Date().toISOString().slice(0,10)}`;
     } else {
       document.title = "AAMVA Barcode Pro";
     }
@@ -75,8 +76,8 @@ const App: React.FC = () => {
     
     const now = new Date();
     setCompilationTime(now.toLocaleString('en-US', { 
-      year: '2-digit', month: 'numeric', day: 'numeric', 
-      hour: 'numeric', minute: '2-digit', hour12: true 
+      year: 'numeric', month: '2-digit', day: '2-digit', 
+      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true 
     }));
     
     setIsCompiling(false);
@@ -433,11 +434,11 @@ const App: React.FC = () => {
               <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
               
               <div className="text-center space-y-3 relative z-10">
-                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
-                  <span className="flex items-center gap-4">
-                    <Layout className="text-sky-600 no-print" size={40} /> {formData.DAQ || "AAMVA_MASTER"}
+                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-1">
+                  <span className="flex items-center gap-3">
+                    <Layout className="text-sky-600 no-print" size={32} /> {formData.DAQ || "AAMVA_MASTER"}
                   </span>
-                  <span className="text-xs font-mono font-bold text-slate-400 tracking-wider not-italic">
+                  <span className="text-[10px] font-mono font-bold text-slate-400 tracking-[0.2em] not-italic opacity-60">
                     {compilationTime}
                   </span>
                 </h3>
