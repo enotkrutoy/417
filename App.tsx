@@ -13,7 +13,7 @@ import {
   FileCode, Database, RefreshCcw, Copy, Layout,
   Hash, Calendar, MapPin, Ruler, Eye, Briefcase,
   AlertTriangle, Fingerprint, Shield, Box, Layers,
-  FileText, CreditCard
+  FileText, CreditCard, Sparkles, BrainCircuit
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -22,7 +22,8 @@ const App: React.FC = () => {
   const [isScanning, setIsScanning] = useState(false);
   const [isCompiling, setIsCompiling] = useState(false);
   const [compilationStatus, setCompilationStatus] = useState("");
-  const [retryCount, setRetryCount] = useState(0);
+  const [scanStatusMsg, setScanStatusMsg] = useState("");
+  const [scanAttempt, setScanAttempt] = useState(0);
   const [scanError, setScanError] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
   const [copyFeedback, setCopyFeedback] = useState(false);
@@ -51,10 +52,16 @@ const App: React.FC = () => {
 
   const handleCompile = async () => {
     setIsCompiling(true);
-    const steps = ["Initializing ANSI Engine...", "Mapping Tags...", "Calculating Offsets...", "Applying PDF417 Logic...", "Finalizing Matrix..."];
+    const steps = [
+      "Initializing ANSI-15434 Container...", 
+      "Mapping AAMVA 2020 Data Tags...", 
+      "Calculating Subfile Offsets...", 
+      "Generating PDF417 Reed-Solomon Code...", 
+      "Synthesizing Matrix Vector..."
+    ];
     for (const s of steps) {
       setCompilationStatus(s);
-      await new Promise(r => setTimeout(r, 250));
+      await new Promise(r => setTimeout(r, 350));
     }
     setIsCompiling(false);
     setStep('RESULT');
@@ -83,9 +90,14 @@ const App: React.FC = () => {
     if (!file) return;
     setIsScanning(true);
     setScanError(null);
+    setScanAttempt(1);
+    
     try {
       const base64 = await preprocessImage(file);
-      const updates = await scanDLWithGemini(base64, (c) => setRetryCount(c));
+      const updates = await scanDLWithGemini(base64, (msg) => {
+        setScanStatusMsg(msg);
+        if (msg.includes("REFINEMENT")) setScanAttempt(2);
+      });
       
       let detectedJur = updates.DAJ ? detectJurisdictionFromCode(updates.DAJ) : null;
       if (detectedJur) {
@@ -102,7 +114,7 @@ const App: React.FC = () => {
       }
       setStep('FORM');
     } catch (err: any) {
-      setScanError(err.message || "OCR Node Error");
+      setScanError(err.message || "DSPy Neural Link Failed");
     } finally {
       setIsScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -131,13 +143,14 @@ const App: React.FC = () => {
       {isCompiling && (
         <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-2xl flex flex-col items-center justify-center animate-in fade-in duration-300">
            <div className="relative mb-8">
-              <div className="w-20 h-20 border-4 border-sky-500/20 border-t-sky-500 rounded-full animate-spin"></div>
+              <div className="w-24 h-24 border-4 border-sky-500/10 border-t-sky-500 rounded-full animate-spin"></div>
               <div className="absolute inset-0 flex items-center justify-center">
-                 <Zap size={24} className="text-sky-500 animate-pulse fill-sky-500" />
+                 <BrainCircuit size={32} className="text-sky-500 animate-pulse fill-sky-500/20" />
               </div>
            </div>
-           <h4 className="text-2xl font-black italic tracking-tighter text-white">{compilationStatus}</h4>
-           <div className="w-48 h-1 bg-slate-800 rounded-full mt-6 overflow-hidden">
+           <h4 className="text-2xl font-black italic tracking-tighter text-white max-w-xs text-center">{compilationStatus}</h4>
+           <div className="w-64 h-1 bg-slate-800 rounded-full mt-8 overflow-hidden relative">
+              <div className="absolute inset-0 bg-sky-500/20 animate-pulse" />
               <div className="h-full bg-sky-500 animate-[progress_1.5s_ease-in-out_infinite]" />
            </div>
         </div>
@@ -160,7 +173,7 @@ const App: React.FC = () => {
         <div className="flex items-center gap-3">
            <div className="flex items-center gap-2 px-3 py-1 bg-slate-950/50 border border-white/5 rounded-full">
               <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider">Neural Link Active</span>
+              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider italic">Gemini 2.5 Flash Optimized</span>
            </div>
         </div>
       </header>
@@ -172,8 +185,8 @@ const App: React.FC = () => {
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-widest">
                 <ShieldCheck size={14}/> AAMVA 2020 Compliance Engine
               </div>
-              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent italic">Vector Kernel</h2>
-              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium italic">Профессиональный генератор PDF417 для водительских удостоверений США и Канады.</p>
+              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent italic">DSPy Optimizer</h2>
+              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium italic">Интеллектуальный OCR пайплайн на базе Gemini 2.5 Flash с нейронной самокоррекцией.</p>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -182,13 +195,29 @@ const App: React.FC = () => {
                 onClick={() => !isScanning && fileInputRef.current?.click()}
               >
                 <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity rotate-12"><Terminal size={180} /></div>
+                
                 <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 border transition-colors ${isScanning ? 'bg-sky-500/20 border-sky-500/40' : 'bg-sky-500/10 border-sky-500/20'}`}>
-                  {isScanning ? <Loader2 size={32} className="text-sky-500 animate-spin" /> : <Camera className="text-sky-500" size={32} />}
+                  {isScanning ? (
+                    <div className="relative">
+                       <Loader2 size={32} className="text-sky-500 animate-spin" />
+                       <Sparkles size={16} className="absolute -top-2 -right-2 text-sky-400 animate-pulse" />
+                    </div>
+                  ) : <Camera className="text-sky-500" size={32} />}
                 </div>
-                <h3 className="text-3xl font-black mb-3 italic">{isScanning ? 'Neural Scan...' : 'Vision Node'}</h3>
-                <p className="text-slate-400 text-sm leading-relaxed mb-10 font-medium italic">
-                  {isScanning ? `Extracting data... Attempt ${retryCount}/2` : 'Мгновенное распознавание DL через Gemini-3 Vision.'}
+
+                <div className="flex items-baseline gap-2 mb-3">
+                   <h3 className="text-3xl font-black italic">{isScanning ? 'Refining...' : 'Neural Scan'}</h3>
+                   {isScanning && (
+                     <span className="text-[10px] font-black bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded-full animate-pulse">
+                        ATTEMPT {scanAttempt}/2
+                     </span>
+                   )}
+                </div>
+
+                <p className="text-slate-400 text-sm leading-relaxed mb-10 font-medium italic min-h-[40px]">
+                  {isScanning ? `${scanStatusMsg}` : 'Автоматическое извлечение и валидация через DSPy-пайплайн (Predict-Validate-Refine).'}
                 </p>
+
                 <div className="flex items-center gap-3 text-sky-400 text-xs font-black uppercase tracking-[0.2em]">
                   {scanError ? 'SCAN FAILED - RETRY' : 'INITIATE CAPTURE'} <RefreshCcw size={16} className={isScanning ? 'animate-spin' : ''}/>
                 </div>
