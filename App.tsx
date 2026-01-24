@@ -177,7 +177,7 @@ const App: React.FC = () => {
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 relative z-10 print:p-0 print:max-w-none">
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 relative z-10 print:p-0 print:max-w-none print:overflow-visible">
         {step === 'SELECT' && (
           <div className="max-w-4xl mx-auto space-y-12 py-10 no-print">
             <div className="text-center space-y-6 animate-in fade-in slide-in-from-top-4 duration-700">
@@ -327,18 +327,18 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-col print:block animate-in slide-in-from-bottom-10 duration-700">
+            <div className="print-content-wrapper print:block animate-in slide-in-from-bottom-10 duration-700">
                {/* PAGE 1: Source Document Reference */}
                {scannedImage && (
-                 <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[85vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-screen print:h-screen print:w-full print:page-break-after-always">
+                 <div className="print-page bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[90vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:h-[99vh] print:w-full print:break-after-page">
                     <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><ImageIcon size={200} /></div>
                     <div className="w-full flex flex-col items-center gap-6 max-h-full print:h-full print:justify-center">
                         <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-full shadow-sm no-print">
                            <ImageIcon size={18} className="text-sky-600" />
                            <span className="text-xs font-black text-slate-800 uppercase tracking-widest italic">SOURCE DOCUMENT REFERENCE</span>
                         </div>
-                        <div className="max-w-4xl w-full bg-slate-50 p-6 rounded-[3rem] border-2 border-slate-100 overflow-hidden flex items-center justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:max-w-none print:h-screen">
-                          <img src={scannedImage} alt="Reference" className="w-auto max-h-[85vh] object-contain rounded-[2rem] grayscale-[0.1] contrast-[1.05] print:max-h-full print:w-auto print:rounded-none" />
+                        <div className="max-w-4xl w-full bg-slate-50 p-6 rounded-[3rem] border-2 border-slate-100 overflow-hidden flex items-center justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:max-w-none print:h-[88vh]">
+                          <img src={scannedImage} alt="Reference" className="w-auto max-h-[85vh] object-contain rounded-[2rem] grayscale-[0.1] contrast-[1.05] print:max-h-[90vh] print:w-auto print:rounded-none" />
                         </div>
                         <div className="text-center mt-2 relative z-10 print:mt-4">
                           <p className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">REFERENCE ID: {formData.DAQ || "AAMVA_MASTER"}</p>
@@ -349,9 +349,9 @@ const App: React.FC = () => {
                )}
 
                {/* PAGE 2: Barcode & Metadata */}
-               <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[70vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-screen print:h-screen print:w-full print:page-break-before-always">
+               <div className="print-page bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[70vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:h-[99vh] print:w-full">
                   <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
-                  <div className="text-center space-y-3 w-full relative z-10 print:mt-[-10vh]">
+                  <div className="text-center space-y-3 w-full relative z-10 print:mt-[-5vh]">
                     <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
                       <span className="flex items-center gap-3"><Layout size={40} className="text-sky-600 no-print" /> {formData.DAQ || "AAMVA_MASTER"}</span>
                       <span className="text-xs font-mono font-bold text-slate-400 tracking-[0.2em] italic uppercase">GENERATED: {compilationTime}</span>
@@ -362,7 +362,7 @@ const App: React.FC = () => {
                       <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code} NODE</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-8 w-full mt-12 relative z-10 print:scale-[1.3]">
+                  <div className="flex flex-col items-center gap-8 w-full mt-12 relative z-10 print:scale-[1.4]">
                      <BarcodeSVG data={generatedString} />
                   </div>
                </div>
@@ -409,22 +409,30 @@ const App: React.FC = () => {
             overflow: visible !important;
           }
           .no-print { display: none !important; }
-          main { padding: 0 !important; margin: 0 !important; max-width: none !important; display: block !important; overflow: visible !important; }
-          .bg-white { 
+          main { 
+            padding: 0 !important; 
+            margin: 0 !important; 
+            max-width: none !important; 
+            display: block !important; 
+            overflow: visible !important; 
+          }
+          .print-content-wrapper { display: block !important; }
+          .print-page { 
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
             width: 100vw !important;
-            height: 100vh !important;
+            height: 99vh !important;
             margin: 0 !important;
             padding: 20px !important;
             border: none !important;
             box-shadow: none !important;
             page-break-after: always !important;
+            break-after: page !important;
             page-break-inside: avoid !important;
           }
-          img { max-width: 100% !important; max-height: 85vh !important; object-fit: contain !important; }
+          img { max-width: 100% !important; max-height: 90vh !important; object-fit: contain !important; }
           canvas { image-rendering: pixelated; }
         }
       `}</style>
