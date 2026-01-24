@@ -23,21 +23,23 @@ const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data, onSuccess }) => {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
+        // Clear previous draw
         const ctx = canvas.getContext('2d');
         if (ctx) {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // AAMVA 2020 Annex D Requirements
-        // Using cols: 12 to match the specific wide-stretched look from reference page 3
+        // AAMVA 2020 Annex D Requirements:
+        // Symbology: PDF417
+        // Error Correction: Level 5 (Mandatory)
+        // Note: We let bwip-js auto-calculate columns/rows to fit the data payload securely.
         await bwipjs.toCanvas(canvas, {
           bcid: 'pdf417',
           text: data,
-          scale: 5, 
-          height: 10, 
-          cols: 12,
-          eclevel: 5, 
-          parsefnc: true, 
+          scale: 3,        // Optimized scale for screen/print balance
+          height: 10,      // Bar height relative to X-dimension
+          eclevel: 5,      // AAMVA mandatory error correction
+          parsefnc: true,  // Handle function characters
           paddingwidth: 10,
           paddingheight: 10,
           backgroundcolor: 'ffffff'
@@ -55,7 +57,8 @@ const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data, onSuccess }) => {
       }
     };
 
-    const timer = setTimeout(generate, 100);
+    // Debounce to prevent flashing on rapid data changes
+    const timer = setTimeout(generate, 300);
     return () => clearTimeout(timer);
   }, [data, onSuccess]);
 
