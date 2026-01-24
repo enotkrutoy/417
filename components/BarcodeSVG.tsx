@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import bwipjs from 'bwip-js';
 
@@ -28,15 +27,14 @@ const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data }) => {
           ctx.clearRect(0, 0, canvas.width, canvas.height);
         }
 
-        // AAMVA 2020 Annex D Requirements:
-        // Symbology: PDF417
-        // Error Correction: Recommended 5
-        // X-Dimension: 0.0066 to 0.015 inch
+        // AAMVA 2020 Annex D Requirements
+        // Using cols: 12 to match the specific wide-stretched look from reference page 3
         await bwipjs.toCanvas(canvas, {
           bcid: 'pdf417',
           text: data,
-          scale: 4, // Higher scale for scanning precision
-          height: 12, 
+          scale: 5, 
+          height: 10, 
+          cols: 12,
           eclevel: 5, 
           parsefnc: true, 
           paddingwidth: 10,
@@ -88,7 +86,7 @@ const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data }) => {
             <img 
               src={printImg} 
               alt="AAMVA 2020 Matrix" 
-              className="hidden print:block max-w-full h-auto" 
+              className="hidden print:block w-full h-auto" 
               style={{ imageRendering: 'pixelated' }}
             />
           )}

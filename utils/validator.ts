@@ -1,4 +1,3 @@
-
 import { DLFormData, ValidationField, ValidationReport } from '../types';
 
 const CRITICAL_TAGS = ['DAQ', 'DCS', 'DAC', 'DBB', 'DBA', 'DCG', 'DAJ'];
@@ -6,12 +5,13 @@ const MANDATORY_TAGS = ['DCA', 'DCB', 'DCD', 'DBD', 'DBC', 'DAY', 'DAU', 'DAG', 
 
 const FIELD_RULES: Record<string, { regex: RegExp; msg: string }> = {
   DAJ: { regex: /^[A-Z]{2}$/, msg: "State code must be 2 uppercase chars." },
-  DAK: { regex: /^[A-Z0-9\s]{5,11}$/, msg: "Zip must be 5-11 alphanumeric characters." },
+  DAK: { regex: /^[A-Z0-9\s]{5,11}$/, msg: "Zip must be 5-11 alphanumeric chars (D.12.5.1 Compliance)." },
   DBB: { regex: /^\d{8}$/, msg: "DOB must be YYYYMMDD." },
   DBA: { regex: /^\d{8}$/, msg: "Expiry Date must be YYYYMMDD." },
   DBD: { regex: /^\d{8}$/, msg: "Issue Date must be YYYYMMDD." },
   DBC: { regex: /^[129]$/, msg: "Sex must be 1 (M), 2 (F), or 9 (X)." },
-  DCG: { regex: /^(USA|CAN)$/, msg: "Country must be USA or CAN." }
+  DCG: { regex: /^(USA|CAN)$/, msg: "Country must be USA or CAN." },
+  DAU: { regex: /^\d{3}\s(IN|CM)$/, msg: "Height must be 3 digits + unit (e.g. 070 IN)." }
 };
 
 export const validateAAMVAStructure = (raw: string, formData: DLFormData): ValidationReport => {
@@ -52,14 +52,14 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
         scannedValue: 'MISSING',
         status: isCritical ? 'CRITICAL_INVALID' : 'MISSING_IN_SCAN'
       });
-      complianceNotes.push(`Field ${tag} not found in generated bitstream.`);
+      complianceNotes.push(`Field ${tag} not found in bitstream.`);
     } else {
       const formVal = (formData[tag] || "").toUpperCase().trim();
       
-      // A.7.7 Compliance check for Names
+      // A.7.7 Neural Compliance Feedback
       if (['DCS', 'DAC', 'DAD'].includes(tag) && formVal.length > 40) {
-        if (raw.includes("'") && !formVal.includes("'")) {
-             // Logic error: Apostrophes should be removed first
+        if (formVal.includes("'")) {
+             complianceNotes.push(`Phase 2 Violation: Apostrophe detected in DCS/DAC while exceeding 40 char limit.`);
         }
       }
 
