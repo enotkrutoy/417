@@ -48,16 +48,17 @@ const App: React.FC = () => {
   const generatedString = useMemo(() => generateAAMVAString(formData), [formData]);
   const validation = useMemo(() => validateAAMVAStructure(generatedString, formData), [generatedString, formData]);
 
-  // Document title management for professional PDF filenames (LicenseID_Timestamp)
+  // Document title management for professional PDF filenames (LicenseID_FullTimestamp)
   useEffect(() => {
     if (step === 'RESULT') {
       const safeId = (formData.DAQ || 'AAMVA').replace(/[^a-zA-Z0-9]/g, '');
-      const safeDate = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
-      document.title = `AAMVA_${safeId}_${safeDate}`;
+      // Format compilation time for filename: replace separators with underscores
+      const safeTime = compilationTime ? compilationTime.replace(/[:\/, ]/g, '_').replace(/_{2,}/g, '_') : 'NEW';
+      document.title = `AAMVA_${safeId}_${safeTime}`;
     } else {
       document.title = "AAMVA Barcode Pro";
     }
-  }, [step, formData.DAQ]);
+  }, [step, formData.DAQ, compilationTime]);
 
   const handleApplyPreset = (preset: DLDataPreset) => {
     setFormData(prev => ({ ...prev, ...preset.data }));
@@ -78,9 +79,10 @@ const App: React.FC = () => {
     }
     
     const now = new Date();
+    // Using a more precise time for display and filename tracking
     setCompilationTime(now.toLocaleString('en-US', { 
       year: 'numeric', month: '2-digit', day: '2-digit', 
-      hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true 
+      hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
     }));
     
     setIsCompiling(false);
@@ -452,8 +454,8 @@ const App: React.FC = () => {
                           />
                         </div>
                         <div className="text-center mt-4">
-                          <p className="text-[10px] font-mono font-bold text-slate-400 tracking-wider">ATTACHED: {formData.DAQ || "MASTER_FILE"}</p>
-                          <p className="text-[9px] font-mono text-slate-300">{compilationTime}</p>
+                          <p className="text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase">ATTACHED REFERENCE: {formData.DAQ || "AAMVA_MASTER"}</p>
+                          <p className="text-[9px] font-mono text-slate-300 font-bold">{compilationTime}</p>
                         </div>
                     </div>
                  </div>
@@ -468,8 +470,8 @@ const App: React.FC = () => {
                       <span className="flex items-center gap-4">
                         <Layout className="text-sky-600 no-print" size={40} /> {formData.DAQ || "AAMVA_MASTER"}
                       </span>
-                      <span className="text-xs font-mono font-bold text-slate-400 tracking-wider not-italic opacity-70">
-                        {compilationTime}
+                      <span className="text-xs font-mono font-bold text-slate-400 tracking-[0.2em] not-italic opacity-80 uppercase">
+                        GENERATED: {compilationTime}
                       </span>
                     </h3>
                     <div className="flex items-center justify-center gap-3">
