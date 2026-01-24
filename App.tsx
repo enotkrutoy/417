@@ -327,42 +327,42 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="print-actual-content print:block">
-               {/* PAGE 1: Source Document Reference */}
+            <div className="print-final-layout print:block">
+               {/* PAGE 1: Reference Image */}
                {scannedImage && (
-                 <div className="print-page-v2 bg-white flex flex-col items-center justify-center print:h-[100vh] print:p-0 print:m-0">
-                    <div className="flex flex-col items-center gap-6 w-full h-full print:justify-center">
-                        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 border-2 border-slate-100 rounded-full no-print">
+                 <div className="print-sheet-v3 bg-white flex flex-col items-center justify-between p-12 print:p-0 print:h-[100vh] print:w-full print:m-0 no-break">
+                    <div className="flex flex-col items-center gap-4 w-full">
+                        <div className="flex items-center gap-2 px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-full">
                            <ImageIcon size={16} className="text-sky-600" />
-                           <span className="text-[10px] font-black text-slate-800 uppercase tracking-widest italic">SOURCE DOCUMENT REFERENCE</span>
+                           <span className="text-[11px] font-black text-slate-800 uppercase tracking-[0.2em] italic">SOURCE DOCUMENT REFERENCE</span>
                         </div>
-                        <div className="w-full flex items-center justify-center p-4 print:p-0">
-                          <img src={scannedImage} alt="Reference" className="max-w-full max-h-[85vh] object-contain rounded-[2rem] print:rounded-none print:max-h-[90vh]" />
-                        </div>
-                        <div className="text-center pb-8 print:pb-4">
-                          <p className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">ATTACHED REFERENCE: {formData.DAQ || "AAMVA_MASTER"}</p>
-                          <p className="text-[9px] font-mono font-bold text-slate-300 uppercase tracking-widest">{compilationTime}</p>
-                        </div>
+                    </div>
+                    <div className="flex-1 flex items-center justify-center w-full p-4 print:p-0">
+                      <img src={scannedImage} alt="Reference" className="max-w-full max-h-[80vh] object-contain rounded-[2rem] shadow-2xl print:shadow-none print:rounded-none" />
+                    </div>
+                    <div className="text-center w-full pb-10">
+                      <p className="text-[11px] font-mono font-black uppercase tracking-[0.3em] text-slate-400">ATTACHED REFERENCE: {formData.DAQ || "39626584"}</p>
+                      <p className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-widest">{compilationTime}</p>
                     </div>
                  </div>
                )}
 
-               {/* PAGE 2: Barcode & Metadata */}
-               <div className="print-page-v2 bg-white flex flex-col items-center justify-center print:h-[100vh] print:p-0 print:m-0 print:break-before-page">
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-12 print:gap-16">
-                      <div className="text-center space-y-2">
-                        <h3 className="text-6xl sm:text-8xl font-black tracking-tighter uppercase italic text-slate-900">{formData.DAQ || "AAMVA_MASTER"}</h3>
-                        <div className="flex flex-col items-center">
-                          <span className="text-[11px] font-mono font-bold text-slate-400 tracking-[0.2em] uppercase italic">GENERATED: {compilationTime}</span>
-                          <div className="flex items-center gap-3 mt-1">
-                             <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
-                             <div className="w-1.5 h-1.5 rounded-full bg-sky-500/20" />
-                             <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code || "TX"} NODE</span>
+               {/* PAGE 2: Barcode Page (Strictly Following 01_21_07 Header Style) */}
+               <div className="print-sheet-v3 bg-white flex flex-col items-center justify-center p-12 print:p-0 print:h-[100vh] print:w-full print:m-0 print:break-before-page">
+                  <div className="w-full flex flex-col items-center justify-center gap-16 print:gap-20">
+                      <div className="text-center">
+                        <h3 className="text-8xl font-black tracking-tighter uppercase italic text-slate-900 leading-none">{formData.DAQ || "39626584"}</h3>
+                        <div className="flex flex-col items-center mt-6">
+                          <span className="text-[14px] font-mono font-black text-slate-400 tracking-[0.4em] uppercase italic">G E N E R A T E D : {compilationTime}</span>
+                          <div className="flex items-center gap-4 mt-4">
+                             <span className="text-[12px] font-black text-slate-300 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
+                             <div className="w-2 h-2 rounded-full bg-sky-500" />
+                             <span className="text-[12px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code || "TX"} NODE</span>
                           </div>
                         </div>
                       </div>
                       
-                      <div className="w-full flex justify-center scale-[1.3] print:scale-[2.0] print:mt-10">
+                      <div className="w-full flex justify-center scale-[1.6] print:scale-[2.2] print:mt-12">
                          <BarcodeSVG data={generatedString} />
                       </div>
                   </div>
@@ -401,12 +401,12 @@ const App: React.FC = () => {
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         
         @media print {
-          @page { size: auto; margin: 0; }
+          @page { size: portrait; margin: 0; }
           html, body { 
             background: white !important; 
             margin: 0 !important; 
             padding: 0 !important; 
-            height: auto !important;
+            height: 100% !important;
             overflow: visible !important;
             -webkit-print-color-adjust: exact;
           }
@@ -418,13 +418,13 @@ const App: React.FC = () => {
             display: block !important; 
             overflow: visible !important; 
           }
-          .print-actual-content { display: block !important; width: 100% !important; }
-          .print-page-v2 { 
+          .print-final-layout { display: block !important; width: 100% !important; }
+          .print-sheet-v3 { 
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
-            width: 100% !important;
+            width: 100vw !important;
             height: 100vh !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -432,8 +432,9 @@ const App: React.FC = () => {
             break-after: page !important;
             page-break-inside: avoid !important;
             background: white !important;
+            overflow: hidden !important;
           }
-          .print-page-v2.print\\:break-before-page {
+          .print-sheet-v3.print\\:break-before-page {
             page-break-before: always !important;
             break-before: page !important;
           }
