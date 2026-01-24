@@ -337,8 +337,8 @@ const App: React.FC = () => {
                            <ImageIcon size={18} className="text-sky-600" />
                            <span className="text-xs font-black text-slate-800 uppercase tracking-widest italic">SOURCE DOCUMENT REFERENCE</span>
                         </div>
-                        <div className="max-w-4xl w-full bg-slate-50 p-6 rounded-[3rem] border-2 border-slate-100 overflow-hidden flex items-center justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:max-w-none print:h-[85vh]">
-                          <img src={scannedImage} alt="Reference" className="w-auto max-h-[80vh] object-contain rounded-[2rem] grayscale-[0.1] contrast-[1.05] print:max-h-full print:w-auto print:rounded-none" />
+                        <div className="max-w-4xl w-full bg-slate-50 p-6 rounded-[3rem] border-2 border-slate-100 overflow-hidden flex items-center justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:max-w-none print:h-screen">
+                          <img src={scannedImage} alt="Reference" className="w-auto max-h-[85vh] object-contain rounded-[2rem] grayscale-[0.1] contrast-[1.05] print:max-h-full print:w-auto print:rounded-none" />
                         </div>
                         <div className="text-center mt-2 relative z-10 print:mt-4">
                           <p className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">REFERENCE ID: {formData.DAQ || "AAMVA_MASTER"}</p>
@@ -362,7 +362,7 @@ const App: React.FC = () => {
                       <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code} NODE</span>
                     </div>
                   </div>
-                  <div className="flex flex-col items-center gap-8 w-full mt-12 relative z-10 print:scale-[1.2]">
+                  <div className="flex flex-col items-center gap-8 w-full mt-12 relative z-10 print:scale-[1.3]">
                      <BarcodeSVG data={generatedString} />
                   </div>
                </div>
