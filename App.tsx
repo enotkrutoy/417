@@ -312,7 +312,7 @@ const App: React.FC = () => {
         )}
 
         {step === 'RESULT' && (
-          <div className="max-w-4xl mx-auto space-y-10 print:max-w-none print:space-y-0">
+          <div className="max-w-4xl mx-auto space-y-10 print:max-w-none print:space-y-0 print:block">
             <div className="flex justify-between items-end border-b border-white/5 pb-8 no-print animate-in fade-in duration-700">
               <div className="space-y-2">
                 <h2 className="text-4xl font-black tracking-tighter italic uppercase">Compiled Bitstream</h2>
@@ -327,43 +327,44 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="print-content-wrapper print:block animate-in slide-in-from-bottom-10 duration-700">
+            <div className="print-wrapper print:block">
                {/* PAGE 1: Source Document Reference */}
                {scannedImage && (
-                 <div className="print-page bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[90vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:h-[99vh] print:w-full print:break-after-page">
-                    <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><ImageIcon size={200} /></div>
-                    <div className="w-full flex flex-col items-center gap-6 max-h-full print:h-full print:justify-center">
-                        <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-full shadow-sm no-print">
+                 <div className="print-page bg-white text-slate-950 flex flex-col items-center justify-center p-12 print:p-0 print:h-[100vh] print:m-0 no-break">
+                    <div className="w-full flex flex-col items-center justify-center gap-8 h-full">
+                        <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-full shadow-sm">
                            <ImageIcon size={18} className="text-sky-600" />
                            <span className="text-xs font-black text-slate-800 uppercase tracking-widest italic">SOURCE DOCUMENT REFERENCE</span>
                         </div>
-                        <div className="max-w-4xl w-full bg-slate-50 p-6 rounded-[3rem] border-2 border-slate-100 overflow-hidden flex items-center justify-center shadow-inner print:p-0 print:border-none print:bg-transparent print:max-w-none print:h-[88vh]">
-                          <img src={scannedImage} alt="Reference" className="w-auto max-h-[85vh] object-contain rounded-[2rem] grayscale-[0.1] contrast-[1.05] print:max-h-[90vh] print:w-auto print:rounded-none" />
+                        <div className="flex-1 flex items-center justify-center w-full">
+                          <img src={scannedImage} alt="Reference" className="max-w-full max-h-[80vh] object-contain rounded-[3rem] shadow-2xl print:shadow-none print:rounded-none" />
                         </div>
-                        <div className="text-center mt-2 relative z-10 print:mt-4">
-                          <p className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">REFERENCE ID: {formData.DAQ || "AAMVA_MASTER"}</p>
-                          <p className="text-[9px] font-mono font-bold text-slate-300 uppercase tracking-widest">{compilationTime}</p>
+                        <div className="text-center pb-10">
+                          <p className="text-[11px] font-mono font-black uppercase tracking-widest text-slate-400">ATTACHED REFERENCE: {formData.DAQ || "AAMVA_MASTER"}</p>
+                          <p className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-widest">{compilationTime}</p>
                         </div>
                     </div>
                  </div>
                )}
 
                {/* PAGE 2: Barcode & Metadata */}
-               <div className="print-page bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[70vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:h-[99vh] print:w-full">
-                  <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
-                  <div className="text-center space-y-3 w-full relative z-10 print:mt-[-5vh]">
-                    <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
-                      <span className="flex items-center gap-3"><Layout size={40} className="text-sky-600 no-print" /> {formData.DAQ || "AAMVA_MASTER"}</span>
-                      <span className="text-xs font-mono font-bold text-slate-400 tracking-[0.2em] italic uppercase">GENERATED: {compilationTime}</span>
-                    </h3>
-                    <div className="flex items-center justify-center gap-3">
-                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
-                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                      <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code} NODE</span>
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center gap-8 w-full mt-12 relative z-10 print:scale-[1.4]">
-                     <BarcodeSVG data={generatedString} />
+               <div className="print-page bg-white text-slate-950 flex flex-col items-center justify-center p-12 print:p-0 print:h-[100vh] print:m-0 print:break-before-page">
+                  <div className="w-full flex flex-col items-center justify-center h-full gap-16">
+                      <div className="text-center space-y-4">
+                        <h3 className="text-8xl font-black tracking-tighter uppercase italic text-slate-900">{formData.DAQ || "39626584"}</h3>
+                        <div className="flex flex-col items-center">
+                          <span className="text-[12px] font-mono font-bold text-slate-400 tracking-[0.3em] uppercase italic">GENERATED: {compilationTime}</span>
+                          <div className="flex items-center gap-4 mt-2">
+                             <span className="text-[11px] font-black text-slate-300 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
+                             <div className="w-2 h-2 rounded-full bg-sky-500/20" />
+                             <span className="text-[11px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code || "TX"} NODE</span>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="w-full flex justify-center scale-[1.5] print:scale-[1.8]">
+                         <BarcodeSVG data={generatedString} />
+                      </div>
                   </div>
                </div>
             </div>
@@ -416,23 +417,28 @@ const App: React.FC = () => {
             display: block !important; 
             overflow: visible !important; 
           }
-          .print-content-wrapper { display: block !important; }
+          .print-wrapper { display: block !important; width: 100% !important; }
           .print-page { 
             display: flex !important;
             flex-direction: column !important;
             align-items: center !important;
             justify-content: center !important;
             width: 100vw !important;
-            height: 99vh !important;
+            height: 100vh !important;
             margin: 0 !important;
-            padding: 20px !important;
+            padding: 0 !important;
             border: none !important;
             box-shadow: none !important;
             page-break-after: always !important;
             break-after: page !important;
             page-break-inside: avoid !important;
+            background: white !important;
           }
-          img { max-width: 100% !important; max-height: 90vh !important; object-fit: contain !important; }
+          .print-page.print\\:break-before-page {
+            page-break-before: always !important;
+            break-before: page !important;
+          }
+          img { max-width: 100% !important; max-height: 85vh !important; object-fit: contain !important; }
           canvas { image-rendering: pixelated; }
         }
       `}</style>
