@@ -6,20 +6,37 @@
     <meta name="theme-color" content="#020617" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>AAMVA Barcode Pro</title>
+    <title>Matrix Pro 2025 | AAMVA Barcode Engine</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
     <style>
+      :root {
+        --grid-color: rgba(56, 189, 248, 0.05);
+      }
       body {
         font-family: 'Roboto', sans-serif;
         background-color: #020617;
         color: #f8fafc;
         -webkit-tap-highlight-color: transparent;
+        overflow-x: hidden;
       }
-      ::-webkit-scrollbar { width: 8px; }
-      ::-webkit-scrollbar-track { background: #0f172a; }
-      ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
-      ::-webkit-scrollbar-thumb:hover { background: #475569; }
+      .bg-grid {
+        background-image: 
+          linear-gradient(to right, var(--grid-color) 1px, transparent 1px),
+          linear-gradient(to bottom, var(--grid-color) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-track { background: #020617; }
+      ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+      ::-webkit-scrollbar-thumb:hover { background: #334155; }
+      
+      .font-mono-tech { font-family: 'JetBrains Mono', monospace; }
+      
+      @media print {
+        .bg-grid { display: none !important; }
+        body { background: white !important; color: black !important; }
+      }
     </style>
   <script type="importmap">
 {
@@ -36,7 +53,7 @@
 }
 </script>
 </head>
-  <body>
+  <body class="bg-grid">
     <div id="root"></div>
     <script type="module" src="./index.tsx"></script>
   </body>
