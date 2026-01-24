@@ -9,8 +9,8 @@ const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 const AAMVA_SCHEMA = {
   type: Type.OBJECT,
   properties: {
-    DCS: { type: Type.STRING, description: "Family Name. Apply A.7.7 Truncation sequence internally if > 40 chars." },
-    DAC: { type: Type.STRING, description: "Given Name." },
+    DCS: { type: Type.STRING, description: "Family Name. Extract FULL name visible on card (do not truncate)." },
+    DAC: { type: Type.STRING, description: "Given Name. Extract FULL name visible on card." },
     DAD: { type: Type.STRING, description: "Middle Name or Initial." },
     DAQ: { type: Type.STRING, description: "License Number." },
     DBB: { type: Type.STRING, description: "DOB YYYYMMDD." },
@@ -19,8 +19,8 @@ const AAMVA_SCHEMA = {
     DAJ: { type: Type.STRING, description: "State Code (2 letters)." },
     DAG: { type: Type.STRING, description: "Address Line 1." },
     DAI: { type: Type.STRING, description: "City." },
-    DAK: { type: Type.STRING, description: "Postal Code. US: 9 digits with zero-fill if unknown." },
-    DAU: { type: Type.STRING, description: "Height in 3 digits + ' IN' or ' CM' (e.g. '070 IN')." },
+    DAK: { type: Type.STRING, description: "Postal Code. US: 9 digits with zero-fill + 2 spaces if ZIP+4 unknown." },
+    DAU: { type: Type.STRING, description: "Height in 3 digits followed by ' IN' or ' CM' (e.g., '073 IN')." },
     DAY: { type: Type.STRING, description: "Eye Color (3 chars)." },
     DBC: { type: Type.STRING, description: "Sex (1=M, 2=F, 9=X)." },
     DCG: { type: Type.STRING, description: "Country (USA/CAN)." },

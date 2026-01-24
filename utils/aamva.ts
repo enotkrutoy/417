@@ -6,45 +6,36 @@ const CR = "\x0D";
 
 /**
  * AAMVA 2020 Annex A.7.7: Name Truncation Sequence
- * Logic maintained as fallback, but primary truncation is now handled neurally.
+ * Strict implementation of Phase 1, 2, and 3.
  */
 export const truncateAAMVA = (name: string, limit: number): { text: string; truncated: 'T' | 'N' } => {
   let current = (name || "").toUpperCase().replace(/[^\x00-\x7F]/g, "").trim();
   if (current.length <= limit) return { text: current, truncated: 'N' };
 
-  // Fallback Phase 1 & 2 logic for local generation safety
-  let changed = true;
-  while (changed && current.length > limit) {
-    changed = false;
-    const lastSpaceHyphen = current.lastIndexOf(" -");
-    const lastHyphenSpace = current.lastIndexOf("- ");
-    const targetIdx = Math.max(lastSpaceHyphen, lastHyphenSpace);
-    if (targetIdx !== -1) {
-      const spaceIdx = current[targetIdx] === ' ' ? targetIdx : targetIdx + 1;
-      current = current.substring(0, spaceIdx) + current.substring(spaceIdx + 1);
-      changed = true;
-    }
+  // Phase 1: Remove spaces adjacent to hyphens (" -", "- " -> "-")
+  while (current.length > limit && (current.includes(" -") || current.includes("- "))) {
+    current = current.replace(/ -/g, "-").replace(/- /g, "-");
   }
+  if (current.length <= limit) return { text: current, truncated: 'T' };
 
+  // Phase 2: Remove apostrophes (Right to Left)
   while (current.length > limit && current.includes("'")) {
-    const idx = current.lastIndexOf("'");
-    current = current.substring(0, idx) + current.substring(idx + 1);
-  }
-
-  if (current.length > limit) {
-    let chars = current.split('');
-    for (let i = chars.length - 1; i >= 0; i--) {
-      if (chars.length <= limit) break;
-      const char = chars[i];
-      const prevChar = i > 0 ? chars[i - 1] : null;
-      if (char !== '-' && char !== ' ' && prevChar !== '-' && prevChar !== ' ') {
-        chars.splice(i, 1);
-      }
+    const lastIdx = current.lastIndexOf("'");
+    if (lastIdx !== -1) {
+      current = current.slice(0, lastIdx) + current.slice(lastIdx + 1);
+    } else {
+      break; 
     }
-    current = chars.join('');
+  }
+  if (current.length <= limit) return { text: current, truncated: 'T' };
+
+  // Phase 3: Remove other characters (Right to Left / Truncate)
+  // Ensure we preserve the first character.
+  if (current.length > limit) {
+    current = current.substring(0, limit);
   }
 
-  return { text: current.substring(0, limit), truncated: 'T' };
+  return { text: current, truncated: 'T' };
 };
 
 const formatToAAMVADate = (dateStr: string, country: string = 'USA'): string => {

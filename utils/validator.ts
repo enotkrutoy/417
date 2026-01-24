@@ -59,7 +59,7 @@ export const validateAAMVAStructure = (raw: string, formData: DLFormData): Valid
       // A.7.7 Neural Compliance Feedback
       if (['DCS', 'DAC', 'DAD'].includes(tag) && formVal.length > 40) {
         if (formVal.includes("'")) {
-             complianceNotes.push(`Phase 2 Violation: Apostrophe detected in DCS/DAC while exceeding 40 char limit.`);
+             complianceNotes.push(`Phase 2 Violation: Apostrophe detected in ${tag} while exceeding 40 char limit.`);
         }
       }
 
