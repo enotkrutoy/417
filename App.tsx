@@ -13,7 +13,7 @@ import {
   FileCode, Database, RefreshCcw, Copy, Layout,
   Hash, Calendar, MapPin, Ruler, Eye, Briefcase,
   AlertTriangle, Fingerprint, Shield, Box, Layers,
-  FileText, CreditCard, Sparkles, BrainCircuit
+  FileText, CreditCard, Sparkles, BrainCircuit, Image as ImageIcon
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -23,6 +23,7 @@ const App: React.FC = () => {
   const [isCompiling, setIsCompiling] = useState(false);
   const [compilationStatus, setCompilationStatus] = useState("");
   const [compilationTime, setCompilationTime] = useState("");
+  const [scannedImage, setScannedImage] = useState<string | null>(null);
   const [scanStatusMsg, setScanStatusMsg] = useState("");
   const [scanAttempt, setScanAttempt] = useState(0);
   const [scanError, setScanError] = useState<string | null>(null);
@@ -47,16 +48,16 @@ const App: React.FC = () => {
   const generatedString = useMemo(() => generateAAMVAString(formData), [formData]);
   const validation = useMemo(() => validateAAMVAStructure(generatedString, formData), [generatedString, formData]);
 
-  // Unified document title management for print/PDF consistency
+  // Document title management for professional PDF filenames (LicenseID_Timestamp)
   useEffect(() => {
     if (step === 'RESULT') {
       const safeId = (formData.DAQ || 'AAMVA').replace(/[^a-zA-Z0-9]/g, '');
-      const safeTime = compilationTime.replace(/[:\/, ]/g, '_').slice(0, 16);
-      document.title = `AAMVA_${safeId}_${safeTime}`;
+      const safeDate = new Date().toISOString().slice(0, 10).replace(/-/g, '_');
+      document.title = `AAMVA_${safeId}_${safeDate}`;
     } else {
       document.title = "AAMVA Barcode Pro";
     }
-  }, [step, formData.DAQ, compilationTime]);
+  }, [step, formData.DAQ]);
 
   const handleApplyPreset = (preset: DLDataPreset) => {
     setFormData(prev => ({ ...prev, ...preset.data }));
@@ -113,6 +114,7 @@ const App: React.FC = () => {
     
     try {
       const base64 = await preprocessImage(file);
+      setScannedImage(`data:image/jpeg;base64,${base64}`);
       const updates = await scanDLWithGemini(base64, (msg) => {
         setScanStatusMsg(msg);
         if (msg.includes("REFINEMENT")) setScanAttempt(2);
@@ -451,7 +453,25 @@ const App: React.FC = () => {
                 </div>
               </div>
               
-              <BarcodeSVG data={generatedString} />
+              <div className="flex flex-col items-center gap-8 w-full">
+                 <BarcodeSVG data={generatedString} />
+                 
+                 {scannedImage && (
+                   <div className="w-full flex flex-col items-center gap-4 pt-8 border-t-2 border-slate-100/50">
+                      <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl">
+                         <ImageIcon size={14} className="text-slate-400" />
+                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Source Document Reference</span>
+                      </div>
+                      <div className="max-w-md w-full bg-slate-50 p-2 rounded-3xl border-2 border-slate-100 shadow-inner overflow-hidden">
+                        <img 
+                          src={scannedImage} 
+                          alt="Source Document" 
+                          className="w-full h-auto rounded-2xl grayscale-[0.3] contrast-[1.1] opacity-90"
+                        />
+                      </div>
+                   </div>
+                 )}
+              </div>
 
               <div className="flex gap-4 w-full max-w-lg no-print">
                  <button onClick={handlePrint} className="flex-1 bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 group italic shadow-xl">
@@ -523,6 +543,10 @@ const App: React.FC = () => {
             padding: 0 !important;
             margin: 0 !important;
             width: 100% !important;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
           }
           canvas, img { 
             max-width: 100% !important; 
