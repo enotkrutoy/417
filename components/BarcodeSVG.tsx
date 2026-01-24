@@ -32,7 +32,6 @@ const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data, onSuccess }) => {
         // AAMVA 2020 Annex D Requirements:
         // Symbology: PDF417
         // Error Correction: Level 5 (Mandatory)
-        // Note: We let bwip-js auto-calculate columns/rows to fit the data payload securely.
         await bwipjs.toCanvas(canvas, {
           bcid: 'pdf417',
           text: data,

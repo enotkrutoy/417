@@ -30,7 +30,7 @@ export const truncateAAMVA = (name: string, limit: number): { text: string; trun
   if (current.length <= limit) return { text: current, truncated: 'T' };
 
   // Phase 3: Remove other characters (Right to Left / Truncate)
-  // Ensure we preserve the first character.
+  // Ensure we preserve the first character by simply slicing to limit if we are still over.
   if (current.length > limit) {
     current = current.substring(0, limit);
   }
@@ -92,7 +92,6 @@ export const generateAAMVAString = (data: DLFormData): string => {
     add("DCD", data.DCD, true);
   }
 
-  // Use raw data as input to truncation logic
   const truncatedDCS = truncateAAMVA(data.DCS, 40);
   const truncatedDAC = truncateAAMVA(data.DAC, 40);
   const truncatedDAD = truncateAAMVA(data.DAD, 40);
@@ -135,6 +134,7 @@ export const generateAAMVAString = (data: DLFormData): string => {
   const iin = (data.IIN || "636000").substring(0, 6).padEnd(6, '0');
   const version = (data.Version || "10").padStart(2, '0');
   const jurVersion = (data.JurisdictionVersion || "00").padStart(2, '0');
+  
   const header = `@${LF}${RS}${CR}ANSI ${iin}${version}${jurVersion}01`; 
   const offset = 21 + 10; 
   const designator = subType + offset.toString().padStart(4, '0') + subfileData.length.toString().padStart(4, '0');
