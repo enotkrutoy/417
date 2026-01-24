@@ -48,11 +48,9 @@ const App: React.FC = () => {
   const generatedString = useMemo(() => generateAAMVAString(formData), [formData]);
   const validation = useMemo(() => validateAAMVAStructure(generatedString, formData), [generatedString, formData]);
 
-  // Document title management for professional PDF filenames (LicenseID_FullTimestamp)
   useEffect(() => {
     if (step === 'RESULT') {
       const safeId = (formData.DAQ || 'AAMVA').replace(/[^a-zA-Z0-9]/g, '');
-      // Format compilation time for filename: replace separators with underscores
       const safeTime = compilationTime ? compilationTime.replace(/[:\/, ]/g, '_').replace(/_{2,}/g, '_') : 'NEW';
       document.title = `AAMVA_${safeId}_${safeTime}`;
     } else {
@@ -66,20 +64,13 @@ const App: React.FC = () => {
 
   const handleCompile = async () => {
     setIsCompiling(true);
-    const steps = [
-      "Initializing ANSI-15434 Container...", 
-      "Mapping AAMVA 2020 Data Tags...", 
-      "Calculating Subfile Offsets...", 
-      "Generating PDF417 Reed-Solomon Code...", 
-      "Synthesizing Matrix Vector..."
-    ];
+    const steps = ["Initial Setup...", "Mapping Tags...", "Generating Matrix..."];
     for (const s of steps) {
       setCompilationStatus(s);
-      await new Promise(r => setTimeout(r, 250));
+      await new Promise(r => setTimeout(r, 200));
     }
     
     const now = new Date();
-    // Using a more precise time for display and filename tracking
     setCompilationTime(now.toLocaleString('en-US', { 
       year: 'numeric', month: '2-digit', day: '2-digit', 
       hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false 
@@ -100,9 +91,7 @@ const App: React.FC = () => {
   const handleSelectJurisdiction = (jur: Jurisdiction) => {
     setSelectedJurisdiction(jur);
     setFormData(prev => ({ 
-      ...prev, 
-      DAJ: jur.code, IIN: jur.iin, 
-      Version: jur.version || '10', DCG: jur.country || 'USA'
+      ...prev, DAJ: jur.code, IIN: jur.iin, Version: jur.version || '10', DCG: jur.country || 'USA'
     }));
     setStep('FORM');
   };
@@ -113,25 +102,14 @@ const App: React.FC = () => {
     setIsScanning(true);
     setScanError(null);
     setScanAttempt(1);
-    
     try {
       const base64 = await preprocessImage(file);
       setScannedImage(`data:image/jpeg;base64,${base64}`);
-      const updates = await scanDLWithGemini(base64, (msg) => {
-        setScanStatusMsg(msg);
-        if (msg.includes("REFINEMENT")) setScanAttempt(2);
-      });
-      
+      const updates = await scanDLWithGemini(base64, (msg) => setScanStatusMsg(msg));
       let detectedJur = updates.DAJ ? detectJurisdictionFromCode(updates.DAJ) : null;
       if (detectedJur) {
         setSelectedJurisdiction(detectedJur);
-        setFormData(prev => ({ 
-          ...prev, 
-          ...updates, 
-          IIN: detectedJur.iin, 
-          DAJ: detectedJur.code,
-          DCG: detectedJur.country || 'USA'
-        }));
+        setFormData(prev => ({ ...prev, ...updates, IIN: detectedJur.iin, DAJ: detectedJur.code, DCG: detectedJur.country || 'USA' }));
       } else {
         setFormData(prev => ({ ...prev, ...updates }));
       }
@@ -147,7 +125,6 @@ const App: React.FC = () => {
   const InputField = ({ label, tag, placeholder = "", type = "text", maxLength = 100 }: { label: string, tag: string, placeholder?: string, type?: string, maxLength?: number }) => {
     const fieldValidation = validation.fields.find(f => f.elementId === tag);
     const hasError = fieldValidation?.status && fieldValidation.status !== 'MATCH';
-    
     return (
       <div className="space-y-1.5 group">
         <div className="flex justify-between items-center px-1">
@@ -155,19 +132,8 @@ const App: React.FC = () => {
           <span className={`text-[8px] font-mono opacity-0 group-focus-within:opacity-100 transition-opacity ${hasError ? 'text-rose-500' : 'text-slate-600'}`}>{tag}</span>
         </div>
         <div className="relative">
-          <input 
-            type={type}
-            value={formData[tag] || ""} 
-            placeholder={placeholder}
-            maxLength={maxLength}
-            onChange={e => setFormData({...formData, [tag]: e.target.value.toUpperCase()})} 
-            className={`w-full bg-slate-950/40 border rounded-2xl p-4 text-sm font-bold outline-none transition-all placeholder:text-slate-700 ${hasError ? 'border-rose-500/50 bg-rose-500/5 focus:bg-rose-500/10' : 'border-white/5 focus:border-sky-500/50 focus:bg-slate-950/80'}`} 
-          />
-          {hasError && (
-            <div className="absolute right-4 top-1/2 -translate-y-1/2 text-rose-500 animate-pulse">
-              <AlertCircle size={16} />
-            </div>
-          )}
+          <input type={type} value={formData[tag] || ""} placeholder={placeholder} maxLength={maxLength} onChange={e => setFormData({...formData, [tag]: e.target.value.toUpperCase()})} className={`w-full bg-slate-950/40 border rounded-2xl p-4 text-sm font-bold outline-none transition-all placeholder:text-slate-700 ${hasError ? 'border-rose-500/50 bg-rose-500/5 focus:bg-rose-500/10' : 'border-white/5 focus:border-sky-500/50 focus:bg-slate-950/80'}`} />
+          {hasError && <div className="absolute right-4 top-1/2 -translate-y-1/2 text-rose-500 animate-pulse"><AlertCircle size={16} /></div>}
         </div>
       </div>
     );
@@ -179,101 +145,43 @@ const App: React.FC = () => {
         <div className="fixed inset-0 z-[100] bg-slate-950/90 backdrop-blur-2xl flex flex-col items-center justify-center animate-in fade-in duration-300">
            <div className="relative mb-8">
               <div className="w-24 h-24 border-4 border-sky-500/10 border-t-sky-500 rounded-full animate-spin"></div>
-              <div className="absolute inset-0 flex items-center justify-center">
-                 <BrainCircuit size={32} className="text-sky-500 animate-pulse fill-sky-500/20" />
-              </div>
+              <div className="absolute inset-0 flex items-center justify-center"><BrainCircuit size={32} className="text-sky-500 animate-pulse fill-sky-500/20" /></div>
            </div>
            <h4 className="text-2xl font-black italic tracking-tighter text-white max-w-xs text-center">{compilationStatus}</h4>
-           <div className="w-64 h-1 bg-slate-800 rounded-full mt-8 overflow-hidden relative">
-              <div className="absolute inset-0 bg-sky-500/20 animate-pulse" />
-              <div className="h-full bg-sky-500 animate-[progress_1.5s_ease-in-out_infinite]" />
-           </div>
         </div>
       )}
 
       <header className="bg-slate-900/40 border-b border-white/5 backdrop-blur-2xl px-6 py-4 flex justify-between items-center sticky top-0 z-50 no-print">
         <div className="flex items-center gap-4">
-          {step !== 'SELECT' && (
-            <button onClick={() => setStep('SELECT')} className="p-2 hover:bg-white/10 rounded-xl transition-all text-sky-400">
-              <ArrowLeft size={20}/>
-            </button>
-          )}
+          {step !== 'SELECT' && <button onClick={() => setStep('SELECT')} className="p-2 hover:bg-white/10 rounded-xl transition-all text-sky-400"><ArrowLeft size={20}/></button>}
           <div className="flex items-center gap-3">
-            <div className="bg-sky-600 p-1.5 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.3)]">
-              <Zap size={18} className="text-white fill-white" />
-            </div>
+            <div className="bg-sky-600 p-1.5 rounded-lg shadow-[0_0_15px_rgba(14,165,233,0.3)]"><Zap size={18} className="text-white fill-white" /></div>
             <h1 className="text-base font-black tracking-tight uppercase">MATRIX <span className="text-sky-500 italic">PRO 2025</span></h1>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-           <div className="flex items-center gap-2 px-3 py-1 bg-slate-950/50 border border-white/5 rounded-full">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-              <span className="text-[9px] font-black uppercase text-slate-400 tracking-wider italic">DSPy Compliance Optimized</span>
-           </div>
-        </div>
       </header>
 
-      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 relative z-10 print:p-0">
+      <main className="flex-1 max-w-7xl mx-auto w-full p-4 sm:p-8 relative z-10 print:p-0 print:max-w-none">
         {step === 'SELECT' && (
           <div className="max-w-4xl mx-auto space-y-12 py-10 no-print">
-            <div className="text-center space-y-6 animate-in fade-in slide-in-from-top-4 duration-700">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-widest">
-                <ShieldCheck size={14}/> AAMVA 2020 Compliance Engine
-              </div>
-              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter bg-gradient-to-b from-white via-white to-slate-600 bg-clip-text text-transparent italic">DSPy Pipeline</h2>
-              <p className="text-slate-400 text-lg max-w-xl mx-auto font-medium italic">Интеллектуальный OCR пайплайн на базе Gemini 2.5 Flash с нейронной самокоррекцией.</p>
+            <div className="text-center space-y-6">
+              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-[10px] font-black uppercase tracking-widest"><ShieldCheck size={14}/> AAMVA 2020 Compliance Engine</div>
+              <h2 className="text-6xl sm:text-8xl font-black tracking-tighter italic">DSPy Pipeline</h2>
             </div>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div 
-                className={`group relative bg-slate-900/50 border rounded-[3rem] p-10 transition-all cursor-pointer shadow-2xl overflow-hidden ${isScanning ? 'border-sky-500/50' : scanError ? 'border-rose-500/40' : 'border-white/5 hover:border-sky-500/40'}`}
-                onClick={() => !isScanning && fileInputRef.current?.click()}
-              >
-                <div className="absolute top-0 right-0 p-8 opacity-5 group-hover:opacity-10 transition-opacity rotate-12"><Terminal size={180} /></div>
-                
-                <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 border transition-colors ${isScanning ? 'bg-sky-500/20 border-sky-500/40' : 'bg-sky-500/10 border-sky-500/20'}`}>
-                  {isScanning ? (
-                    <div className="relative">
-                       <Loader2 size={32} className="text-sky-500 animate-spin" />
-                       <Sparkles size={16} className="absolute -top-2 -right-2 text-sky-400 animate-pulse" />
-                    </div>
-                  ) : <Camera className="text-sky-500" size={32} />}
-                </div>
-
-                <div className="flex items-baseline gap-2 mb-3">
-                   <h3 className="text-3xl font-black italic">{isScanning ? 'Refining...' : 'Neural Scan'}</h3>
-                   {isScanning && (
-                     <span className="text-[10px] font-black bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded-full animate-pulse">
-                        ATTEMPT {scanAttempt}/2
-                     </span>
-                   )}
-                </div>
-
-                <p className="text-slate-400 text-sm leading-relaxed mb-10 font-medium italic min-h-[40px]">
-                  {isScanning ? `${scanStatusMsg}` : 'Автоматическое извлечение и валидация через DSPy-пайплайн (Predict-Validate-Refine).'}
-                </p>
-
-                <div className="flex items-center gap-3 text-sky-400 text-xs font-black uppercase tracking-[0.2em]">
-                  {scanError ? 'SCAN FAILED - RETRY' : 'INITIATE CAPTURE'} <RefreshCcw size={16} className={isScanning ? 'animate-spin' : ''}/>
-                </div>
+              <div className="group relative bg-slate-900/50 border border-white/5 rounded-[3rem] p-10 transition-all cursor-pointer hover:border-sky-500/40" onClick={() => !isScanning && fileInputRef.current?.click()}>
+                <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center mb-8 bg-sky-500/10 border border-sky-500/20`}>{isScanning ? <Loader2 size={32} className="text-sky-500 animate-spin" /> : <Camera className="text-sky-500" size={32} />}</div>
+                <h3 className="text-3xl font-black italic">{isScanning ? 'Scanning...' : 'Neural Scan'}</h3>
+                <p className="text-slate-400 text-sm italic mt-2">{scanStatusMsg || 'Extract data automatically.'}</p>
                 <input type="file" ref={fileInputRef} onChange={handleImageScan} className="hidden" accept="image/*" />
               </div>
-
-              <div className="bg-slate-900/30 border border-white/5 rounded-[3rem] p-10 flex flex-col shadow-2xl backdrop-blur-sm">
-                <h3 className="text-3xl font-black mb-8 flex items-center gap-3 italic">Jurisdiction</h3>
-                <div className="relative mb-6">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-600" size={18} />
-                  <input 
-                    placeholder="Search State Node..." 
-                    className="w-full bg-slate-950/80 border border-white/5 rounded-2xl pl-12 pr-4 py-4 text-sm font-bold outline-none focus:border-sky-500/50 transition-all" 
-                    onChange={e => setFilterText(e.target.value)}
-                  />
-                </div>
-                <div className="grid grid-cols-3 gap-2 overflow-y-auto max-h-[160px] pr-2 custom-scrollbar">
-                  {JURISDICTIONS.filter(j => j.name.toLowerCase().includes(filterText.toLowerCase())).map(j => (
-                    <button key={j.name} onClick={() => handleSelectJurisdiction(j)} className="group bg-slate-800/40 hover:bg-sky-600 border border-white/5 p-3 rounded-xl text-xs font-black transition-all flex flex-col items-center gap-1">
-                      <span className="text-sky-400 group-hover:text-white transition-colors tracking-tighter italic">{j.code}</span>
-                      <span className="text-[7px] text-slate-500 group-hover:text-sky-100 uppercase truncate w-full text-center">{j.name}</span>
+              <div className="bg-slate-900/30 border border-white/5 rounded-[3rem] p-10 flex flex-col">
+                <h3 className="text-3xl font-black mb-8 italic">Jurisdiction</h3>
+                <div className="grid grid-cols-2 gap-2 overflow-y-auto max-h-[160px] pr-2 custom-scrollbar">
+                  {JURISDICTIONS.map(j => (
+                    <button key={j.name} onClick={() => handleSelectJurisdiction(j)} className="bg-slate-800/40 hover:bg-sky-600 border border-white/5 p-3 rounded-xl text-xs font-black flex flex-col items-center gap-1 transition-colors">
+                      <span className="text-sky-400 italic">{j.code}</span>
+                      <span className="text-[7px] text-slate-500 uppercase truncate w-full text-center">{j.name}</span>
                     </button>
                   ))}
                 </div>
@@ -283,196 +191,77 @@ const App: React.FC = () => {
         )}
 
         {step === 'FORM' && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 animate-in fade-in zoom-in-95 duration-500 no-print">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 no-print">
             <div className="lg:col-span-8 bg-slate-900/60 rounded-[3.5rem] p-8 sm:p-12 border border-white/5 shadow-2xl space-y-10 backdrop-blur-xl">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-6 border-b border-white/5 pb-10">
                 <div className="flex items-center gap-6">
-                   <div className="bg-sky-500/10 p-5 rounded-[1.5rem] border border-sky-500/20 shadow-inner"><User className="text-sky-500" size={40} /></div>
+                   <div className="bg-sky-500/10 p-5 rounded-[1.5rem] border border-sky-500/20"><User className="text-sky-500" size={40} /></div>
                    <div>
-                    <h3 className="text-4xl font-black tracking-tight italic">{selectedJurisdiction?.name}</h3>
-                    <div className="flex items-center gap-3 mt-2">
-                       <span className="bg-sky-600 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider italic">V.{formData.Version} REV</span>
-                       <span className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em]">{formData.DCG} Region</span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex flex-col items-end gap-3">
-                   <div className="flex gap-1 bg-slate-950 p-1 rounded-xl border border-white/5">
-                      <button 
-                        onClick={() => setFormData({...formData, subfileType: 'DL'})}
-                        className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[9px] font-black uppercase transition-all ${formData.subfileType === 'DL' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}
-                      >
-                         <CreditCard size={12}/> Driver License
-                      </button>
-                      <button 
-                        onClick={() => setFormData({...formData, subfileType: 'ID'})}
-                        className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[9px] font-black uppercase transition-all ${formData.subfileType === 'ID' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}
-                      >
-                         <FileText size={12}/> ID Card
-                      </button>
-                   </div>
-                   <div className="flex gap-2 bg-slate-950/50 p-1.5 rounded-2xl border border-white/5">
-                    <button onClick={() => setActiveTab('BASIC')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'BASIC' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}>Basic</button>
-                    <button onClick={() => setActiveTab('ADVANCED')} className={`px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeTab === 'ADVANCED' ? 'bg-sky-600 text-white shadow-lg italic' : 'text-slate-500'}`}>Advanced</button>
+                    <h3 className="text-4xl font-black italic">{selectedJurisdiction?.name}</h3>
+                    <div className="flex items-center gap-3 mt-2"><span className="bg-sky-600 text-white px-2.5 py-0.5 rounded-full text-[9px] font-black italic uppercase">V.{formData.Version} REV</span></div>
                   </div>
                 </div>
               </div>
-
-              {activeTab === 'BASIC' ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-left-4 duration-300">
-                  <InputField label="Family Name" tag="DCS" />
-                  <InputField label="First Name" tag="DAC" />
-                  <InputField label="Middle Name" tag="DAD" />
-                  <InputField label="ID Number" tag="DAQ" />
-                  <InputField label="Birth Date" tag="DBB" placeholder="YYYYMMDD" maxLength={8} />
-                  <InputField label="Expiration Date" tag="DBA" placeholder="YYYYMMDD" maxLength={8} />
-                  <div className="lg:col-span-3">
-                    <InputField label="Address Line 1" tag="DAG" />
-                  </div>
-                  <InputField label="City" tag="DAI" />
-                  <InputField label="State" tag="DAJ" maxLength={2} />
-                  <InputField label="Zip Code" tag="DAK" maxLength={11} />
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in slide-in-from-right-4 duration-300">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest px-1 italic">Sex</label>
-                    <select value={formData.DBC} onChange={e => setFormData({...formData, DBC: e.target.value})} className="w-full bg-slate-950/40 border border-white/5 rounded-2xl p-4 text-sm font-bold outline-none focus:border-sky-500/50 appearance-none cursor-pointer">
-                      <option value="1">1 - MALE</option>
-                      <option value="2">2 - FEMALE</option>
-                      <option value="9">9 - NON SPECIFIED</option>
-                    </select>
-                  </div>
-                  <InputField label="Eye Color" tag="DAY" placeholder="BRO/BLU/GRN" maxLength={3} />
-                  <InputField label="Hair Color" tag="DAZ" placeholder="BRO/BLK/BLN" maxLength={3} />
-                  <InputField label="Height" tag="DAU" placeholder="5-09 IN" />
-                  <InputField label="Weight (LBS)" tag="DAW" maxLength={3} />
-                  <InputField label="Issue Date" tag="DBD" placeholder="YYYYMMDD" />
-                  <InputField label="Restrictions" tag="DCB" placeholder="NONE" />
-                  <InputField label="Endorsements" tag="DCD" placeholder="NONE" />
-                  <InputField label="Class" tag="DCA" placeholder="C" />
-                  <div className="lg:col-span-3 border-t border-white/5 pt-6 mt-4">
-                     <h5 className="text-[9px] font-black text-sky-500 uppercase tracking-widest mb-4 italic">Identity Markers</h5>
-                  </div>
-                  <InputField label="Compliance" tag="DDA" maxLength={1} />
-                  <InputField label="Revision" tag="DDB" placeholder="YYYYMMDD" />
-                  <InputField label="Discriminator" tag="DCF" />
-                </div>
-              )}
-
-              <button onClick={handleCompile} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2.5rem] font-black text-xl transition-all shadow-[0_20px_50px_rgba(8,145,178,0.4)] flex items-center justify-center gap-4 group italic">
-                <FileCode className="group-hover:rotate-12 transition-transform" size={24} /> COMPILE MATRIX
-              </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <InputField label="Family Name" tag="DCS" />
+                <InputField label="First Name" tag="DAC" />
+                <InputField label="ID Number" tag="DAQ" />
+                <InputField label="Birth Date" tag="DBB" placeholder="YYYYMMDD" maxLength={8} />
+                <InputField label="Expiration Date" tag="DBA" placeholder="YYYYMMDD" maxLength={8} />
+                <InputField label="City" tag="DAI" />
+                <InputField label="State" tag="DAJ" maxLength={2} />
+                <InputField label="Zip Code" tag="DAK" maxLength={11} />
+              </div>
+              <button onClick={handleCompile} className="w-full bg-sky-600 hover:bg-sky-500 py-6 rounded-[2.5rem] font-black text-xl flex items-center justify-center gap-4 group italic transition-all"><FileCode size={24} /> COMPILE MATRIX</button>
             </div>
-
             <div className="lg:col-span-4 space-y-6">
-              <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-6 shadow-xl">
-                 <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] italic flex items-center gap-2"><Layers size={14}/> Test Nodes</h4>
-                 <div className="grid grid-cols-1 gap-3">
-                   {PRESETS.map(preset => (
-                     <button 
-                       key={preset.id} 
-                       onClick={() => handleApplyPreset(preset)}
-                       className="w-full p-4 bg-slate-950/50 border border-white/5 hover:border-sky-500/40 rounded-2xl text-left transition-all group"
-                     >
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-[11px] font-black text-slate-200 uppercase italic">{preset.label}</span>
-                          <Box size={14} className="text-slate-600 group-hover:text-sky-400 transition-colors" />
-                        </div>
-                        <p className="text-[9px] text-slate-500 font-medium italic">{preset.description}</p>
-                     </button>
-                   ))}
-                 </div>
-              </div>
-
-              <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-8 shadow-xl sticky top-28">
-                 <div className="flex items-center justify-between">
-                    <h4 className="text-[10px] font-black text-sky-500 uppercase tracking-[0.2em] italic">Kernel Validation</h4>
-                    <span className={`text-2xl font-black italic ${validation.overallScore > 90 ? 'text-emerald-500' : 'text-amber-500'}`}>{validation.overallScore}%</span>
-                 </div>
-                 <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-                    <div className={`h-full transition-all duration-1000 ${validation.overallScore > 90 ? 'bg-emerald-500' : 'bg-sky-600'}`} style={{ width: `${validation.overallScore}%` }} />
-                 </div>
-                 <div className="space-y-3 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                    {validation.fields.map(f => (
-                      <div key={f.elementId} className={`flex items-center justify-between p-3 rounded-xl border transition-all ${f.status === 'CRITICAL_INVALID' ? 'bg-rose-500/10 border-rose-500/20' : 'bg-white/5 border-transparent'}`}>
-                        <div className="flex flex-col">
-                          <span className="text-[8px] font-black uppercase text-slate-500">{f.elementId}</span>
-                          <span className="text-[10px] font-bold text-slate-300 truncate max-w-[120px]">{f.description}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                           <span className={`text-[8px] font-black uppercase ${f.status === 'MATCH' ? 'text-emerald-500' : 'text-rose-400'}`}>{f.status === 'MATCH' ? 'Found' : 'Err'}</span>
-                           {f.status === 'MATCH' ? <Check size={14} className="text-emerald-500"/> : <AlertCircle size={14} className="text-rose-500"/>}
-                        </div>
-                      </div>
-                    ))}
-                 </div>
-                 {validation.complianceNotes.length > 0 && (
-                   <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-2">
-                      <div className="flex items-center gap-2 text-amber-500">
-                        <AlertTriangle size={14} />
-                        <span className="text-[9px] font-black uppercase tracking-widest italic">Compliance Logs</span>
-                      </div>
-                      {validation.complianceNotes.map((note, i) => (
-                        <p key={i} className="text-[9px] text-amber-200/70 font-medium italic leading-tight">• {note}</p>
-                      ))}
-                   </div>
-                 )}
+              <div className="bg-slate-900 border border-white/5 rounded-[2.5rem] p-8 space-y-8 shadow-xl">
+                 <div className="flex items-center justify-between"><h4 className="text-[10px] font-black text-sky-500 uppercase italic">Kernel Validation</h4><span className={`text-2xl font-black italic ${validation.overallScore > 90 ? 'text-emerald-500' : 'text-amber-500'}`}>{validation.overallScore}%</span></div>
+                 <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden"><div className={`h-full transition-all duration-1000 ${validation.overallScore > 90 ? 'bg-emerald-500' : 'bg-sky-600'}`} style={{ width: `${validation.overallScore}%` }} /></div>
               </div>
             </div>
           </div>
         )}
 
         {step === 'RESULT' && (
-          <div className="max-w-4xl mx-auto space-y-10 animate-in fade-in slide-in-from-bottom-10 duration-700">
+          <div className="max-w-4xl mx-auto space-y-10">
             <div className="flex justify-between items-end border-b border-white/5 pb-8 no-print">
               <div className="space-y-2">
                 <h2 className="text-4xl font-black tracking-tighter italic">Compiled Bitstream</h2>
-                <span className="px-3 py-1 rounded-lg text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 italic">Node Verified</span>
+                <span className="px-3 py-1 rounded-lg text-[10px] font-black bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 italic uppercase">Node Verified</span>
               </div>
               <div className="flex gap-4">
-                <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all italic"><Edit3 size={18} /> Modify Core</button>
-                <button onClick={() => setStep('SELECT')} className="p-4 bg-sky-600/10 text-sky-400 rounded-2xl border border-sky-500/20 hover:bg-sky-600/20 transition-colors"><RefreshCcw size={18} /></button>
+                <button onClick={() => setStep('FORM')} className="flex items-center gap-2 px-8 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-2xl text-xs font-black uppercase tracking-widest transition-all italic"><Edit3 size={18} /> Edit</button>
+                <button onClick={handlePrint} className="flex items-center gap-2 px-8 py-4 bg-sky-600 text-white rounded-2xl text-xs font-black uppercase tracking-widest transition-all italic shadow-lg shadow-sky-600/20"><Printer size={18} /> Print PDF</button>
               </div>
             </div>
 
-            <div className="flex flex-col gap-10 print:gap-0">
+            <div className="flex flex-col print:gap-0">
                {/* PAGE 1: Source Document Reference */}
                {scannedImage && (
-                 <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[70vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-[100vh] print:break-after-page">
-                    <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><ImageIcon size={200} /></div>
-                    <div className="w-full flex flex-col items-center gap-6">
-                        <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-full shadow-sm">
+                 <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[70vh] shadow-2xl border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-0 print:h-[100vh] print:page-break-after-always">
+                    <div className="w-full flex flex-col items-center gap-6 max-h-full">
+                        <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-full">
                            <ImageIcon size={18} className="text-sky-600" />
-                           <span className="text-xs font-black text-slate-800 uppercase tracking-[0.2em] italic">SOURCE DOCUMENT REFERENCE</span>
+                           <span className="text-xs font-black text-slate-800 uppercase tracking-widest italic">SOURCE DOCUMENT REFERENCE</span>
                         </div>
-                        <div className="max-w-2xl w-full bg-slate-50 p-4 rounded-[3rem] border-2 border-slate-100 shadow-inner overflow-hidden">
-                          <img 
-                            src={scannedImage} 
-                            alt="Source Document" 
-                            className="w-full h-auto rounded-[2rem] grayscale-[0.2] contrast-[1.1]"
-                          />
+                        <div className="max-w-2xl w-full bg-slate-50 p-4 rounded-[3rem] border-2 border-slate-100 overflow-hidden flex items-center justify-center">
+                          <img src={scannedImage} alt="Reference" className="w-auto max-h-[70vh] object-contain rounded-[2rem]" />
                         </div>
-                        <div className="text-center mt-4">
-                          <p className="text-[10px] font-mono font-bold text-slate-400 tracking-wider uppercase">ATTACHED REFERENCE: {formData.DAQ || "AAMVA_MASTER"}</p>
-                          <p className="text-[9px] font-mono text-slate-300 font-bold">{compilationTime}</p>
+                        <div className="text-center mt-2">
+                          <p className="text-[10px] font-mono font-black uppercase tracking-widest text-slate-400">REFERENCE: {formData.DAQ || "AAMVA_MASTER"}</p>
+                          <p className="text-[9px] font-mono font-bold text-slate-300">{compilationTime}</p>
                         </div>
                     </div>
                  </div>
                )}
 
                {/* PAGE 2: Barcode & Metadata */}
-               <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-[100vh] print:justify-center">
-                  <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
-                  
-                  <div className="text-center space-y-3 relative z-10 w-full">
+               <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[70vh] shadow-2xl border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-0 print:h-[100vh] print:page-break-before-always">
+                  <div className="text-center space-y-3 w-full">
                     <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
-                      <span className="flex items-center gap-4">
-                        <Layout className="text-sky-600 no-print" size={40} /> {formData.DAQ || "AAMVA_MASTER"}
-                      </span>
-                      <span className="text-xs font-mono font-bold text-slate-400 tracking-[0.2em] not-italic opacity-80 uppercase">
-                        GENERATED: {compilationTime}
-                      </span>
+                      <span>{formData.DAQ || "AAMVA_MASTER"}</span>
+                      <span className="text-xs font-mono font-bold text-slate-400 tracking-[0.2em] italic">GENERATED: {compilationTime}</span>
                     </h3>
                     <div className="flex items-center justify-center gap-3">
                       <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
@@ -480,93 +269,70 @@ const App: React.FC = () => {
                       <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code} NODE</span>
                     </div>
                   </div>
-                  
-                  <div className="flex flex-col items-center gap-8 w-full">
-                     <BarcodeSVG data={generatedString} />
-                  </div>
-
-                  <div className="flex gap-4 w-full max-w-lg no-print">
-                     <button onClick={handlePrint} className="flex-1 bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 group italic shadow-xl">
-                        <Printer size={24} className="group-hover:translate-y-[-2px] transition-transform" /> PRINT MASTER
-                     </button>
-                     <button onClick={handleCopy} className={`flex-1 py-6 rounded-[2.5rem] font-black text-xl transition-all flex items-center justify-center gap-4 italic shadow-xl ${copyFeedback ? 'bg-emerald-500 text-white' : 'bg-sky-100 text-sky-600 hover:bg-sky-200'}`}>
-                        {copyFeedback ? <Check size={24} /> : <Copy size={24} />} {copyFeedback ? 'COPIED' : 'COPY RAW'}
-                     </button>
-                  </div>
+                  <div className="flex flex-col items-center gap-8 w-full mt-10"><BarcodeSVG data={generatedString} /></div>
                </div>
             </div>
 
-            <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] space-y-8 no-print backdrop-blur-md shadow-2xl">
-               <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <Terminal size={16} className="text-sky-400" />
-                    <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.4em] italic">Bitstream Matrix Explorer</h4>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" />
-                    <span className="text-[9px] font-mono text-emerald-400 bg-emerald-400/5 px-3 py-1 rounded-full uppercase italic tracking-widest">Compliant Vector</span>
-                  </div>
+            <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] no-print">
+               <div className="flex justify-between items-center mb-6">
+                  <div className="flex items-center gap-3"><Terminal size={16} className="text-sky-400" /><h4 className="text-[11px] font-black text-slate-500 uppercase italic tracking-widest">Raw Bitstream</h4></div>
+                  <button onClick={handleCopy} className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase transition-all flex items-center gap-2 ${copyFeedback ? 'bg-emerald-500 text-white' : 'bg-slate-800 text-slate-400 hover:text-white'}`}>{copyFeedback ? <Check size={14} /> : <Copy size={14} />} {copyFeedback ? 'COPIED' : 'COPY RAW'}</button>
                </div>
-
-               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-6 bg-slate-950/60 border border-emerald-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
-                     <span className="text-[8px] font-black text-emerald-500 uppercase tracking-[0.2em] italic">0-21 Bytes</span>
-                     <h5 className="text-xs font-black italic">ANSI Header</h5>
-                     <p className="text-[9px] text-slate-500 font-medium italic leading-tight">Standard file prefix with IIN & Version markers.</p>
-                  </div>
-                  <div className="p-6 bg-slate-950/60 border border-sky-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
-                     <span className="text-[8px] font-black text-sky-500 uppercase tracking-[0.2em] italic">21-31 Bytes</span>
-                     <h5 className="text-xs font-black italic">Subfile Designator</h5>
-                     <p className="text-[9px] text-slate-500 font-medium italic leading-tight">Lookup table for subfile offset and length.</p>
-                  </div>
-                  <div className="p-6 bg-slate-950/60 border border-indigo-500/20 rounded-[2rem] space-y-2 group hover:bg-slate-950 transition-all">
-                     <span className="text-[8px] font-black text-indigo-500 uppercase tracking-[0.2em] italic">31+ Bytes</span>
-                     <h5 className="text-xs font-black italic">Matrix Payload</h5>
-                     <p className="text-[9px] text-slate-500 font-medium italic leading-tight">Encrypted/Plain AAMVA tags with LF/CR delimiters.</p>
-                  </div>
-               </div>
-
-               <div className="bg-slate-950 p-8 rounded-[2.5rem] font-mono text-[10px] break-all leading-relaxed text-sky-400/80 border border-white/5 select-all max-h-[220px] overflow-y-auto custom-scrollbar relative">
-                 <div className="absolute top-4 right-8 text-[8px] font-black uppercase text-slate-700">ANSI 15434 V.2020</div>
-                 <span className="text-emerald-400 font-black">{generatedString.substring(0, 21)}</span>
-                 <span className="text-sky-400 font-black">{generatedString.substring(21, 31)}</span>
-                 <span className="text-slate-300">{generatedString.substring(31)}</span>
-               </div>
+               <div className="bg-slate-950 p-6 rounded-[2rem] font-mono text-[10px] break-all leading-relaxed text-sky-400/80 max-h-[200px] overflow-y-auto custom-scrollbar select-all">{generatedString}</div>
             </div>
           </div>
         )}
       </main>
 
       <style>{`
-        @keyframes progress {
-          0% { transform: translateX(-100%); }
-          50% { transform: translateX(0%); }
-          100% { transform: translateX(100%); }
-        }
-        .custom-scrollbar::-webkit-scrollbar { width: 4px; height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 10px; }
         
         @media print {
+          @page {
+            size: auto;
+            margin: 0mm;
+          }
+          html, body {
+            background: white !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            height: auto !important;
+          }
           .no-print { display: none !important; }
-          body { background: white !important; padding: 0 !important; margin: 0 !important; }
-          .bg-white { 
-            box-shadow: none !important; 
-            border: none !important; 
+          main { 
             padding: 0 !important;
             margin: 0 !important;
-            width: 100% !important;
-            min-height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-start;
-            page-break-after: always;
-            break-after: page;
+            max-width: none !important;
           }
-          canvas, img { 
-            max-width: 100% !important; 
-            height: auto !important; 
-            image-rendering: pixelated;
+          .bg-white { 
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            padding: 40px !important;
+            border: none !important;
+            box-shadow: none !important;
+          }
+          .print\\:page-break-after-always {
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+          .print\\:page-break-before-always {
+            page-break-before: always !important;
+            break-before: page !important;
+          }
+          img {
+            max-width: 100% !important;
+            max-height: 80vh !important;
+            object-contain: contain;
+          }
+          canvas {
+             image-rendering: pixelated;
           }
         }
       `}</style>
