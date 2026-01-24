@@ -327,7 +327,7 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex flex-col print:gap-0 print:block animate-in slide-in-from-bottom-10 duration-700">
+            <div className="flex flex-col print:block animate-in slide-in-from-bottom-10 duration-700">
                {/* PAGE 1: Source Document Reference */}
                {scannedImage && (
                  <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[85vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-screen print:h-screen print:w-full print:page-break-after-always">
@@ -405,11 +405,11 @@ const App: React.FC = () => {
             background: white !important; 
             margin: 0 !important; 
             padding: 0 !important; 
-            height: 100vh !important;
-            overflow: hidden !important;
+            height: auto !important;
+            overflow: visible !important;
           }
           .no-print { display: none !important; }
-          main { padding: 0 !important; margin: 0 !important; max-width: none !important; display: block !important; }
+          main { padding: 0 !important; margin: 0 !important; max-width: none !important; display: block !important; overflow: visible !important; }
           .bg-white { 
             display: flex !important;
             flex-direction: column !important;
@@ -421,10 +421,9 @@ const App: React.FC = () => {
             padding: 20px !important;
             border: none !important;
             box-shadow: none !important;
+            page-break-after: always !important;
             page-break-inside: avoid !important;
           }
-          .print\\:page-break-after-always { page-break-after: always !important; break-after: page !important; }
-          .print\\:page-break-before-always { page-break-before: always !important; break-before: page !important; }
           img { max-width: 100% !important; max-height: 85vh !important; object-fit: contain !important; }
           canvas { image-rendering: pixelated; }
         }
