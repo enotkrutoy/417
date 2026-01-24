@@ -19,8 +19,8 @@ const AAMVA_SCHEMA = {
     DAJ: { type: Type.STRING, description: "State Code (2 letters)." },
     DAG: { type: Type.STRING, description: "Address Line 1." },
     DAI: { type: Type.STRING, description: "City." },
-    DAK: { type: Type.STRING, description: "Postal Code. US: 9 digits with zero-fill + 2 spaces if ZIP+4 unknown." },
-    DAU: { type: Type.STRING, description: "Height in 3 digits followed by ' IN' or ' CM' (e.g., '073 IN')." },
+    DAK: { type: Type.STRING, description: "Postal Code. US: 9 digits with zero-fill + 2 spaces if ZIP+4 unknown (e.g. 123450000)." },
+    DAU: { type: Type.STRING, description: "Height in 3 digits followed by ' IN' or ' CM' (e.g., '073 IN'). Convert 5'-06\" to '066 IN'." },
     DAY: { type: Type.STRING, description: "Eye Color (3 chars)." },
     DBC: { type: Type.STRING, description: "Sex (1=M, 2=F, 9=X)." },
     DCG: { type: Type.STRING, description: "Country (USA/CAN)." },
@@ -91,7 +91,7 @@ export const scanDLWithGemini = async (
             { text: `TASK: Neural Normalization of AAMVA 2020 Data.
             RULES:
             1. ${TRUNCATION_GUIDE}
-            2. HEIGHT (DAU): Return strictly 3-digit inches/cm (e.g., '069 IN').
+            2. HEIGHT (DAU): Return strictly 3-digit inches/cm (e.g., '069 IN'). Convert feet/inches to total inches.
             3. POSTAL (DAK): 9 digits zero-filled + spaces if ZIP+4 is missing.
             ${feedback ? `\n\nPREVIOUS ERROR FEEDBACK:\n${feedback}` : ''}` }
           ]
