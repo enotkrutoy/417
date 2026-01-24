@@ -434,53 +434,64 @@ const App: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none">
-              <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
-              
-              <div className="text-center space-y-3 relative z-10 w-full">
-                <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
-                  <span className="flex items-center gap-4">
-                    <Layout className="text-sky-600 no-print" size={40} /> {formData.DAQ || "AAMVA_MASTER"}
-                  </span>
-                  <span className="text-xs font-mono font-bold text-slate-400 tracking-wider not-italic opacity-70">
-                    {compilationTime}
-                  </span>
-                </h3>
-                <div className="flex items-center justify-center gap-3">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
-                  <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code} NODE</span>
-                </div>
-              </div>
-              
-              <div className="flex flex-col items-center gap-8 w-full">
-                 <BarcodeSVG data={generatedString} />
-                 
-                 {scannedImage && (
-                   <div className="w-full flex flex-col items-center gap-4 pt-8 border-t-2 border-slate-100/50">
-                      <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border border-slate-200 rounded-2xl">
-                         <ImageIcon size={14} className="text-slate-400" />
-                         <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest italic">Source Document Reference</span>
-                      </div>
-                      <div className="max-w-md w-full bg-slate-50 p-2 rounded-3xl border-2 border-slate-100 shadow-inner overflow-hidden">
-                        <img 
-                          src={scannedImage} 
-                          alt="Source Document" 
-                          className="w-full h-auto rounded-2xl grayscale-[0.3] contrast-[1.1] opacity-90"
-                        />
-                      </div>
-                   </div>
-                 )}
-              </div>
+            <div className="flex flex-col gap-10 print:gap-0">
+               {/* PAGE 1: Source Document Reference */}
+               {scannedImage && (
+                 <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center justify-center min-h-[70vh] shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-[100vh] print:break-after-page">
+                    <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><ImageIcon size={200} /></div>
+                    <div className="w-full flex flex-col items-center gap-6">
+                        <div className="flex items-center gap-3 px-6 py-3 bg-slate-50 border-2 border-slate-100 rounded-full shadow-sm">
+                           <ImageIcon size={18} className="text-sky-600" />
+                           <span className="text-xs font-black text-slate-800 uppercase tracking-[0.2em] italic">SOURCE DOCUMENT REFERENCE</span>
+                        </div>
+                        <div className="max-w-2xl w-full bg-slate-50 p-4 rounded-[3rem] border-2 border-slate-100 shadow-inner overflow-hidden">
+                          <img 
+                            src={scannedImage} 
+                            alt="Source Document" 
+                            className="w-full h-auto rounded-[2rem] grayscale-[0.2] contrast-[1.1]"
+                          />
+                        </div>
+                        <div className="text-center mt-4">
+                          <p className="text-[10px] font-mono font-bold text-slate-400 tracking-wider">ATTACHED: {formData.DAQ || "MASTER_FILE"}</p>
+                          <p className="text-[9px] font-mono text-slate-300">{compilationTime}</p>
+                        </div>
+                    </div>
+                 </div>
+               )}
 
-              <div className="flex gap-4 w-full max-w-lg no-print">
-                 <button onClick={handlePrint} className="flex-1 bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 group italic shadow-xl">
-                    <Printer size={24} className="group-hover:translate-y-[-2px] transition-transform" /> PRINT MASTER
-                 </button>
-                 <button onClick={handleCopy} className={`flex-1 py-6 rounded-[2.5rem] font-black text-xl transition-all flex items-center justify-center gap-4 italic shadow-xl ${copyFeedback ? 'bg-emerald-500 text-white' : 'bg-sky-100 text-sky-600 hover:bg-sky-200'}`}>
-                    {copyFeedback ? <Check size={24} /> : <Copy size={24} />} {copyFeedback ? 'COPIED' : 'COPY RAW'}
-                 </button>
-              </div>
+               {/* PAGE 2: Barcode & Metadata */}
+               <div className="bg-white rounded-[4rem] p-12 text-slate-950 flex flex-col items-center gap-12 shadow-[0_50px_100px_rgba(0,0,0,0.5)] border-4 border-slate-200 relative overflow-hidden print:m-0 print:p-0 print:border-none print:shadow-none print:min-h-[100vh] print:justify-center">
+                  <div className="absolute top-0 right-0 p-12 opacity-[0.03] rotate-12 no-print"><Shield size={200} /></div>
+                  
+                  <div className="text-center space-y-3 relative z-10 w-full">
+                    <h3 className="text-5xl font-black tracking-tighter uppercase italic text-slate-900 flex flex-col items-center gap-2">
+                      <span className="flex items-center gap-4">
+                        <Layout className="text-sky-600 no-print" size={40} /> {formData.DAQ || "AAMVA_MASTER"}
+                      </span>
+                      <span className="text-xs font-mono font-bold text-slate-400 tracking-wider not-italic opacity-70">
+                        {compilationTime}
+                      </span>
+                    </h3>
+                    <div className="flex items-center justify-center gap-3">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest font-mono italic">AAMVA_2020_REV_1</span>
+                      <div className="w-1.5 h-1.5 rounded-full bg-slate-300" />
+                      <span className="text-[10px] font-black text-sky-600 uppercase tracking-widest font-mono italic">{selectedJurisdiction?.code} NODE</span>
+                    </div>
+                  </div>
+                  
+                  <div className="flex flex-col items-center gap-8 w-full">
+                     <BarcodeSVG data={generatedString} />
+                  </div>
+
+                  <div className="flex gap-4 w-full max-w-lg no-print">
+                     <button onClick={handlePrint} className="flex-1 bg-slate-950 text-white py-6 rounded-[2.5rem] font-black text-xl hover:bg-slate-800 transition-all flex items-center justify-center gap-4 group italic shadow-xl">
+                        <Printer size={24} className="group-hover:translate-y-[-2px] transition-transform" /> PRINT MASTER
+                     </button>
+                     <button onClick={handleCopy} className={`flex-1 py-6 rounded-[2.5rem] font-black text-xl transition-all flex items-center justify-center gap-4 italic shadow-xl ${copyFeedback ? 'bg-emerald-500 text-white' : 'bg-sky-100 text-sky-600 hover:bg-sky-200'}`}>
+                        {copyFeedback ? <Check size={24} /> : <Copy size={24} />} {copyFeedback ? 'COPIED' : 'COPY RAW'}
+                     </button>
+                  </div>
+               </div>
             </div>
 
             <div className="bg-slate-900/50 border border-white/5 p-10 rounded-[3.5rem] space-y-8 no-print backdrop-blur-md shadow-2xl">
@@ -547,6 +558,8 @@ const App: React.FC = () => {
             display: flex;
             flex-direction: column;
             justify-content: flex-start;
+            page-break-after: always;
+            break-after: page;
           }
           canvas, img { 
             max-width: 100% !important; 
