@@ -12,7 +12,8 @@ import {
   FileCode, Database, RefreshCcw, Copy, Layout,
   Hash, Calendar, MapPin, Ruler, Eye, Briefcase,
   AlertTriangle, Fingerprint, Shield, Box, Layers,
-  FileText, CreditCard, Sparkles, BrainCircuit, Image as ImageIcon
+  FileText, CreditCard, Sparkles, BrainCircuit, Image as ImageIcon,
+  Download
 } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -28,6 +29,7 @@ const App: React.FC = () => {
   const [scanError, setScanError] = useState<string | null>(null);
   const [filterText, setFilterText] = useState("");
   const [copyFeedback, setCopyFeedback] = useState(false);
+  const [barcodeDataUrl, setBarcodeDataUrl] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -81,6 +83,53 @@ const App: React.FC = () => {
     setIsCompiling(false);
     setStep('RESULT');
     window.scrollTo(0, 0);
+  };
+
+  const handleDownload = () => {
+    if (!barcodeDataUrl) return;
+    const link = document.createElement('a');
+    link.href = barcodeDataUrl;
+    link.download = `${docId}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleSmartFormatting = (tag: string, value: string) => {
+    // Smart Height Formatting (Imperial/Metric)
+    if (tag === 'DAU') {
+      const clean = value.toUpperCase().trim();
+      
+      // If already has unit, leave it
+      if (clean.endsWith('IN') || clean.endsWith('CM')) return;
+
+      // Detect 5'9 or 5-09 or 509 patterns
+      const feetInches = clean.match(/^(\d{1})['\s-]?(\d{1,2})"?$/);
+      if (feetInches) {
+        const ft = parseInt(feetInches[1]);
+        const inches = parseInt(feetInches[2]);
+        if (ft >= 2 && ft <= 8 && inches < 12) {
+           const totalInches = (ft * 12) + inches;
+           setFormData(prev => ({ ...prev, [tag]: `${String(totalInches).padStart(3, '0')} IN` }));
+           return;
+        }
+      }
+      
+      // Detect 509 (meaning 5'09")
+      if (clean.length === 3 && !isNaN(Number(clean))) {
+        const first = parseInt(clean[0]);
+        if (first >= 4 && first <= 7) {
+           // likely feet
+           const ft = parseInt(clean[0]);
+           const inches = parseInt(clean.substring(1));
+           if (inches < 12) {
+             const totalInches = (ft * 12) + inches;
+             setFormData(prev => ({ ...prev, [tag]: `${String(totalInches).padStart(3, '0')} IN` }));
+             return;
+           }
+        }
+      }
+    }
   };
 
   const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -186,10 +235,21 @@ const App: React.FC = () => {
               <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8">
                 <div className="flex items-center gap-3 mb-8 pb-4 border-b border-slate-800"><User className="text-sky-400" /><h2 className="text-xl font-bold text-white uppercase tracking-widest italic">Identity Elements</h2></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {(['DCS', 'DAC', 'DAQ', 'DBB', 'DBA', 'DBD', 'DAJ', 'DAK'] as const).map(tag => (
+                  {(['DCS', 'DAC', 'DAQ', 'DBB', 'DBA', 'DBD', 'DAJ', 'DAK', 'DAU'] as const).map(tag => (
                     <div key={tag} className="space-y-2">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1 italic">{tag === 'DCS' ? 'Family Name' : tag === 'DAC' ? 'Given Name' : tag === 'DAQ' ? 'ID Number' : tag}</label>
-                      <input value={formData[tag]} onChange={e => setFormData(p => ({ ...p, [tag]: e.target.value }))} className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white focus:border-sky-500 outline-none transition-all font-mono font-bold" />
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-widest px-1 italic">
+                        {tag === 'DCS' ? 'Family Name' : 
+                         tag === 'DAC' ? 'Given Name' : 
+                         tag === 'DAQ' ? 'ID Number' : 
+                         tag === 'DAU' ? 'Height (5-09)' : tag}
+                      </label>
+                      <input 
+                        value={formData[tag]} 
+                        onChange={e => setFormData(p => ({ ...p, [tag]: e.target.value }))} 
+                        onBlur={(e) => handleSmartFormatting(tag, e.target.value)}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-2xl p-4 text-white focus:border-sky-500 outline-none transition-all font-mono font-bold placeholder-slate-700"
+                        placeholder={tag === 'DAU' ? 'e.g. 5-09' : ''}
+                      />
                     </div>
                   ))}
                 </div>
@@ -213,6 +273,10 @@ const App: React.FC = () => {
           <button onClick={() => window.print()} className="px-8 py-2.5 bg-slate-950 text-white rounded-full font-black hover:bg-slate-900 transition-all flex items-center gap-2 italic shadow-lg">
             <Printer size={20} />
             PRINT PDF
+          </button>
+          <div className="h-5 w-px bg-slate-200" />
+          <button onClick={handleDownload} className="p-2.5 hover:bg-slate-100 rounded-full transition-colors text-sky-600" title="Download PNG">
+            <Download size={22} />
           </button>
         </div>
 
@@ -279,7 +343,7 @@ const App: React.FC = () => {
 
               {/* PDF417 Matrix Component */}
               <div className="w-full px-2">
-                 <BarcodeSVG data={generatedString} />
+                 <BarcodeSVG data={generatedString} onSuccess={setBarcodeDataUrl} />
               </div>
             </div>
 

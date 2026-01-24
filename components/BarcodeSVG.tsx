@@ -3,9 +3,10 @@ import bwipjs from 'bwip-js';
 
 interface BarcodeSVGProps {
   data: string;
+  onSuccess?: (dataUrl: string) => void;
 }
 
-const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data }) => {
+const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data, onSuccess }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -42,7 +43,9 @@ const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data }) => {
           backgroundcolor: 'ffffff'
         });
         
-        setPrintImg(canvas.toDataURL('image/png'));
+        const dataUrl = canvas.toDataURL('image/png');
+        setPrintImg(dataUrl);
+        if (onSuccess) onSuccess(dataUrl);
         setError(null);
       } catch (e: any) {
         console.error('BwipJS Error:', e);
@@ -54,7 +57,7 @@ const BarcodeSVG: React.FC<BarcodeSVGProps> = ({ data }) => {
 
     const timer = setTimeout(generate, 100);
     return () => clearTimeout(timer);
-  }, [data]);
+  }, [data, onSuccess]);
 
   return (
     <div className="flex flex-col items-center justify-center p-6 bg-white rounded-[2.5rem] border-4 border-slate-100 shadow-inner group min-h-[300px] w-full overflow-hidden print:border-none print:shadow-none print:p-0">
